@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>年度業績分析</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: sticky control bar + tab strip; summary tiles first, then chart cards in a 2-col grid that stacks on phones */
+:root{
+  --bg:#f3f5f4; --panel:#ffffff; --panel-2:#f8faf9; --ink:#13201c; --ink-2:#47544f; --ink-3:#77837e;
+  --line:#dde4e1; --grid:#e9eeec; --accent:#1c5cab; --accent-soft:#e2ecf8; --accent-ink:#ffffff;
+  --bar:#2a78d6; --bar-dim:#b7d3f6;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#8a948f;
+  --tA:#184f95; --tB:#3987e5; --tC:#9ec5f4;
+  --good:#0a7f0a; --good-bg:#e4f4e4; --bad:#c23434; --bad-bg:#fbe7e6; --warn:#9a6a00; --warn-bg:#fdf3dc;
+  --f-sans:"IBM Plex Sans","Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111715; --panel:#18201d; --panel-2:#1d2622; --ink:#eef3f1; --ink-2:#b9c4bf; --ink-3:#86928d;
+  --line:#2c3632; --grid:#25302b; --accent:#6da7ec; --accent-soft:#1d2d42; --accent-ink:#0b1420;
+  --bar:#3987e5; --bar-dim:#2a4466;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#7d8883;
+  --tA:#86b6ef; --tB:#3987e5; --tC:#1c5cab;
+  --good:#4cc24c; --good-bg:#16301a; --bad:#ef7676; --bad-bg:#3a1c1c; --warn:#f0c04a; --warn-bg:#352a10;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111715; --panel:#18201d; --panel-2:#1d2622; --ink:#eef3f1; --ink-2:#b9c4bf; --ink-3:#86928d;
+  --line:#2c3632; --grid:#25302b; --accent:#6da7ec; --accent-soft:#1d2d42; --accent-ink:#0b1420;
+  --bar:#3987e5; --bar-dim:#2a4466;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#7d8883;
+  --tA:#86b6ef; --tB:#3987e5; --tC:#1c5cab;
+  --good:#4cc24c; --good-bg:#16301a; --bad:#ef7676; --bad-bg:#3a1c1c; --warn:#f0c04a; --warn-bg:#352a10;
+  color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-sans);font-size:14px;line-height:1.55;margin:0}
+.wrap{max-width:1280px;margin:0 auto;padding-inline:20px;padding-block:0 48px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--bg);border-bottom:1px solid var(--line)}
+.topin{max-width:1280px;margin:0 auto;padding:14px 20px 0;display:flex;flex-direction:column;gap:10px}
+.row1{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:22px;margin:0;letter-spacing:.02em;font-weight:700;text-wrap:balance}
+.sub{color:var(--ink-3);font-size:12.5px;font-variant-numeric:tabular-nums}
+.ctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ctrls label{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+select,input[type=search],input[type=number]{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-height:34px}
+input[type=search]{min-width:0;width:240px;max-width:100%}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 14px;min-height:34px}
+button:hover{border-color:var(--ink-3)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.danger{color:var(--bad);border-color:var(--bad)}
+button:focus-visible,select:focus-visible,input:focus-visible,.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;border-radius:0;background:none;padding:9px 14px;color:var(--ink-2);border-bottom:2px solid transparent;white-space:nowrap;min-height:0}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+main{display:flex;flex-direction:column;gap:16px;padding-top:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .k{font-size:12px;color:var(--ink-3);letter-spacing:.04em}
+.kpi .v{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.25}
+.kpi .v small{font-size:14px;font-weight:500;color:var(--ink-2);margin-left:2px}
+.kpi .d{font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+@media (max-width:900px){.grid2,.grid3{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card h2{font-size:15px;margin:0;font-weight:600}
+.card .hint{font-size:12.5px;color:var(--ink-3);margin:-6px 0 0}
+.cv{position:relative;height:280px}
+.cv.tall{height:360px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--ink-2)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th{font-weight:600;color:var(--ink-2);background:var(--panel-2);position:sticky;top:0;font-size:12.5px}
+th.l,td.l{text-align:left}
+tbody tr:hover td{background:var(--panel-2)}
+tbody tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:999px;font-weight:600;letter-spacing:.02em}
+.pA{background:var(--tA);color:#fff}.pB{background:var(--tB);color:#fff}.pC{background:var(--tC);color:#0d2a4d}
+.pBad{background:var(--bad-bg);color:var(--bad)}.pGood{background:var(--good-bg);color:var(--good)}.pWarn{background:var(--warn-bg);color:var(--warn)}.pMuted{background:var(--panel-2);color:var(--ink-3);border:1px solid var(--line)}
+.up{color:var(--good)}.down{color:var(--bad)}.mut{color:var(--ink-3)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{padding:3px 12px;border-radius:999px;font-size:12.5px;min-height:28px}
+.chip[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:600}
+.rule{background:var(--accent-soft);border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--ink-2);display:flex;flex-direction:column;gap:4px}
+.rule b{color:var(--ink)}
+.bar-in{display:inline-block;height:8px;border-radius:2px;background:var(--bar);vertical-align:middle;margin-right:6px}
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:28px 16px;text-align:center;color:var(--ink-2);display:flex;flex-direction:column;gap:8px;align-items:center;background:var(--panel-2)}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:13px;max-width:calc(100% - 32px);z-index:20;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.empty{color:var(--ink-3);padding:16px;text-align:center}
+.flex{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.note{font-size:12.5px;color:var(--ink-3)}
+.lock{max-width:520px;margin:40px auto 0}
+.preview{border:1px solid var(--accent);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:var(--panel)}
+@media (max-width:560px){.wrap,.topin{padding-inline:16px}.kpi .v{font-size:22px}h1{font-size:19px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="topin">
+    <div class="row1">
+      <div>
+        <h1>年度業績分析</h1>
+        <div class="sub" id="sub">讀取資料中…</div>
+      </div>
+      <div class="ctrls">
+        <label for="selYear">分析年度 <select id="selYear"></select></label>
+        <label for="selRep">業務 <select id="selRep"></select></label>
+        <button class="primary" id="btnUpload" type="button">上傳新年度</button>
+        <button id="lockBtn" type="button" hidden title="清除畫面上的資料，需重新輸入密碼">鎖定</button>
+        <input type="file" id="fileIn" accept=".xlsx,.xls,.csv" hidden>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<div class="wrap"><main id="main"><div class="empty">讀取資料中…</div></main></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script id="logic">
+/* ---------- 計算核心（與 Excel 公式一致） ---------- */
+const TIER_A = 1000000, TIER_B = 300000;
+function tierOf(v){ return v >= TIER_A ? 'A' : v >= TIER_B ? 'B' : 'C'; }
+
+function analyze(rows){
+  const years = [...new Set(rows.map(r => r.y))].sort((a,b) => a-b);
+  const F = years[0], L = years[years.length-1];
+  const pos = new Map(), first = new Map(), key = new Map();
+  for (const r of rows){
+    if (r.d > 0){ if (!pos.has(r.id)) pos.set(r.id, []); pos.get(r.id).push(r.y); }
+    if (!first.has(r.id) || r.y < first.get(r.id)) first.set(r.id, r.y);
+    r.lvl = tierOf(r.h);
+    key.set(r.y + '|' + r.id, r);
+  }
+  for (const r of rows){
+    const p = key.get((r.y-1) + '|' + r.id);
+    r.prev = p ? p.lvl : '前年未交易';
+    // 新客人：第一年不判斷；之前年度從未出現 → 新客人
+    r.isNew = r.y === F ? '不判斷' : (first.get(r.id) === r.y ? '新客人' : '現有');
+    // 疑似跑單：最近兩年不判斷；本列有下單且之後再也沒下單，或最近五年都沒下單
+    if (r.y >= L-1) r.gone = '不判斷';
+    else {
+      const ys = pos.get(r.id) || [];
+      const later = ys.some(t => t > r.y && t <= L);
+      const recent = ys.some(t => t >= L-4 && t <= L);
+      r.gone = ((r.d > 0 && !later) || !recent) ? '疑似跑單' : '還在';
+    }
+  }
+  // 客戶層級彙總
+  const cust = new Map();
+  const sorted = rows.slice().sort((a,b) => a.y - b.y);
+  for (const r of sorted){
+    let c = cust.get(r.id);
+    if (!c){ c = {id:r.id, name:r.n, rep:'', moves:[], amt:{}, total:0, first:first.get(r.id), lastPos:null, peak:-Infinity, peakY:null, nYears:0}; cust.set(r.id, c); }
+    c.name = r.n || c.name;
+    if (r.r && r.r !== c.rep){ if (c.rep) c.moves.push({y:r.y, from:c.rep, to:r.r}); c.rep = r.r; }
+    c.amt[r.y] = (c.amt[r.y] || 0) + r.h;
+    c.total += r.h;
+    if (r.d > 0){ c.lastPos = r.y; c.nYears++; }
+    if (r.h > c.peak){ c.peak = r.h; c.peakY = r.y; }
+  }
+  for (const c of cust.values()){
+    c.peakTier = tierOf(c.peak);
+    c.status = c.lastPos == null ? '無有效訂單' : c.lastPos <= L-2 ? '疑似跑單' : '還在';
+    c.lastAmt = c.lastPos != null ? c.amt[c.lastPos] : 0;
+  }
+  return {years, F, L, cust};
+}
+</script>
+<script id="app">
+const S = { rows: [], view: [], merge: {}, updated: '', source: 'none', baseUpdated: '', A: null, tab: 'overview', year: null, rep: '全部', q: '', abcTier: 'A', lostTier: '全部', lostQ: '', pending: null, delYear: null };
+const TABS = [['overview','總覽'],['rep','業務分析'],['abc','ABC 客戶'],['lost','疑似跑單'],['new','新客人'],['cust','客戶查詢'],['data','資料管理']];
+let charts = [];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const nf0 = new Intl.NumberFormat('zh-TW', {maximumFractionDigits:0});
+const wan = v => nf0.format(Math.round(v/1e4)) + ' 萬';
+const big = v => Math.abs(v) >= 1e8 ? (v/1e8).toFixed(2) + ' 億' : wan(v);
+const axisW = v => Math.abs(v) >= 1e8 ? (v/1e8).toFixed(1).replace(/\.0$/,'') + '億' : nf0.format(v/1e4) + '萬';
+const pct = (x, d=1) => (x*100).toFixed(d) + '%';
+function delta(cur, prev){
+  if (!prev) return '<span class="mut">—</span>';
+  const g = (cur - prev) / Math.abs(prev);
+  return `<span class="${g >= 0 ? 'up' : 'down'}">${g >= 0 ? '▲' : '▼'} ${pct(Math.abs(g))}</span>`;
+}
+const repCell = c => esc(c.rep || '(未填)') + (c.moves.length ? ` <span class="mut" title="${esc(c.moves.map(m => m.y + ' 年 ' + m.from + ' → ' + m.to).join('、'))}">（原：${esc(c.moves.map(m => m.from).filter((v, i, a) => a.indexOf(v) === i).join('、'))}）</span>` : '');
+const tierPill = t => t === 'A' || t === 'B' || t === 'C' ? `<span class="pill p${t}">${t}</span>` : `<span class="pill pMuted">${esc(t)}</span>`;
+const statusPill = s => s === '疑似跑單' ? '<span class="pill pBad">⚠ 疑似跑單</span>' : s === '還在' ? '<span class="pill pGood">✓ 還在</span>' : `<span class="pill pMuted">${esc(s)}</span>`;
+
+function store(k, v){ try{ localStorage.setItem('sales.' + k, JSON.stringify(v)); }catch(e){} }
+function recall(k){ try{ const v = localStorage.getItem('sales.' + k); return v == null ? null : JSON.parse(v); }catch(e){ return null; } }
+
+let toastT;
+function toast(msg, ms=4200){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, ms); }
+
+/* ---------- 資料載入 ---------- */
+const IN_CLAUDE = !!(window.claude && window.claude.use);
+function parsePayload(j){
+  return {rows:(j.rows || []).map(a => ({y:+a[0], id:String(a[1]), n:String(a[2]), d:+a[3], h:+a[4], r:String(a[5] || '')})), merge:j.merge || {}, updated:j.updated || ''};
+}
+function payload(){
+  return {v:2, updated:S.updated, cols:['年度', '對象編號', '對象簡稱', '合計金額', '實際總金額', '業務'], merge:S.merge, rows:S.rows.map(r => [r.y, r.id, r.n, r.d, r.h, r.r])};
+}
+/* ---------- 加密（AES-256-GCM，金鑰由密碼經 PBKDF2-SHA256 產生） ---------- */
+const ENC_ITER = 600000;
+const b64e = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function deriveKey(pass, salt, iter){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt', 'decrypt']);
+}
+async function encryptObj(obj, pass){
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(pass, salt, ENC_ITER);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(JSON.stringify(obj))));
+  return {v:1, enc:'AES-256-GCM', kdf:'PBKDF2-SHA256', iter:ENC_ITER, updated:obj.updated || '', salt:b64e(salt), iv:b64e(iv), ct:b64e(ct)};
+}
+async function decryptObj(e, pass){
+  const key = await deriveKey(pass, b64d(e.salt), e.iter);
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64d(e.iv)}, key, b64d(e.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+const newer = (a, b) => (a && a.updated || '') > (b && b.updated || '');
+
+async function load(){
+  let base = null, local = null, encBase = null, encLocal = null;
+  try{ const res = await fetch('data.enc.json', {cache:'no-store'}); if (res.ok) encBase = await res.json(); }catch(e){}
+  if (!encBase){ try{ const res = await fetch('data.json', {cache:'no-store'}); if (res.ok) base = parsePayload(await res.json()); }catch(e){} }
+  if (!IN_CLAUDE){
+    try{ const t = localStorage.getItem('sales.enc'); if (t) encLocal = JSON.parse(t); }catch(e){}
+    try{ localStorage.removeItem('sales.data'); }catch(e){} // 舊版未加密的本機資料一律清掉
+  }
+  S.encMode = !IN_CLAUDE;
+  if (encBase || encLocal){ S.lockInfo = {encBase, encLocal}; S.baseUpdated = encBase ? encBase.updated : ''; showLock(); return; }
+  S.baseUpdated = base ? base.updated : '';
+  finishLoad(base, base ? 'file' : 'none');
+}
+function showLock(err){
+  $('#lockBtn').hidden = true;
+  document.querySelector('.ctrls').hidden = true; $('#tabs').hidden = true;
+  $('#sub').textContent = '資料已加密，請輸入密碼';
+  $('#main').innerHTML = `<section class="card lock"><h2>🔒 輸入密碼開啟業績資料</h2>
+    <form id="lockForm" class="chips"><label for="pw" class="note">密碼</label><input type="password" id="pw" autocomplete="current-password" required style="width:220px"><button class="primary" type="submit" id="pwBtn">解鎖</button></form>
+    <p class="note" id="pwMsg">${err ? `<span class="down">${esc(err)}</span>` : '資料以密碼加密存放，沒有密碼的人只會看到亂碼。'}</p></section>`;
+  const pw = $('#pw'); pw.focus();
+  $('#lockForm').onsubmit = async e => {
+    e.preventDefault(); $('#pwBtn').disabled = true; $('#pwMsg').textContent = '解鎖中…';
+    const {encBase, encLocal} = S.lockInfo;
+    const useLocal = encLocal && (!encBase || newer(encLocal, encBase));
+    try{
+      const obj = parsePayload(await decryptObj(useLocal ? encLocal : encBase, pw.value));
+      S.pass = pw.value;
+      document.querySelector('.ctrls').hidden = false; $('#tabs').hidden = false; $('#lockBtn').hidden = false;
+      finishLoad(obj, useLocal ? 'local' : 'file');
+    }catch(err){
+      // 本機版本解不開時（例如已在別台改過密碼），再試 GitHub 版本
+      if (useLocal && encBase){ try{ const obj = parsePayload(await decryptObj(encBase, pw.value)); S.pass = pw.value; document.querySelector('.ctrls').hidden = false; $('#tabs').hidden = false; $('#lockBtn').hidden = false; finishLoad(obj, 'file'); toast('本機版本的密碼不同，已改用 GitHub 上的資料'); return; }catch(e2){} }
+      showLock('密碼不正確');
+    }
+  };
+}
+function finishLoad(use, source){
+  S.source = source;
+  S.rows = use ? use.rows : []; S.merge = use ? use.merge : {}; S.updated = use ? use.updated : '';
+  recompute();
+  S.tab = recall('tab') || 'overview';
+  const ry = recall('year'); if (ry && S.A && S.A.years.includes(ry)) S.year = ry;
+  const rr = recall('rep'); if (rr && repList().includes(rr)) S.rep = rr;
+  buildControls(); render();
+}
+/* 同一客戶不同編號 → 合併成主編號（同年金額相加） */
+function canon(id){ let x = id, n = 0; while (S.merge[x] && n++ < 20) x = S.merge[x]; return x; }
+function applyMerge(rows){
+  const m = new Map();
+  for (const r of rows){
+    const id = canon(r.id), k = r.y + '|' + id, o = m.get(k);
+    if (!o) m.set(k, {...r, id, orig:r.id});
+    else { o.d += r.d; o.h += r.h; if (r.id === id){ o.n = r.n; o.r = r.r || o.r; } o.orig += '+' + r.id; }
+  }
+  return [...m.values()];
+}
+function recompute(){
+  S.rows.sort((a,b) => a.y - b.y || b.h - a.h);
+  S.view = applyMerge(S.rows).sort((a,b) => a.y - b.y || b.h - a.h);
+  S.A = S.view.length ? analyze(S.view) : null;
+  if (S.A && (!S.year || !S.A.years.includes(S.year))) S.year = S.A.L;
+}
+function repTotals(){
+  const m = new Map();
+  for (const r of S.view){ const k = r.r || '(未填)'; m.set(k, (m.get(k) || 0) + r.h); }
+  return [...m.entries()].sort((a,b) => b[1]-a[1]);
+}
+const repList = () => repTotals().map(x => x[0]);
+/* 主要業務（依歷年總額前五）固定配色，其餘歸「其他」 */
+function repGroups(){
+  const list = repList(); const major = list.slice(0, 5);
+  return {major, groupOf: r => major.includes(r || '(未填)') ? (r || '(未填)') : '其他'};
+}
+const repColor = (name, major) => { const i = major.indexOf(name); return i >= 0 ? css('--s' + (i+1)) : css('--s6'); };
+
+function fRows(){ return S.rep === '全部' ? S.view : S.view.filter(r => (r.r || '(未填)') === S.rep); }
+function fCust(){ const all = [...S.A.cust.values()]; return S.rep === '全部' ? all : all.filter(c => (c.rep || '(未填)') === S.rep); }
+
+function buildControls(){
+  const ys = S.A ? S.A.years.slice().reverse() : [];
+  $('#selYear').innerHTML = ys.map(y => `<option value="${y}" ${y === S.year ? 'selected' : ''}>${y} 年</option>`).join('');
+  $('#selRep').innerHTML = ['全部', ...repList()].map(r => `<option ${r === S.rep ? 'selected' : ''}>${esc(r)}</option>`).join('');
+  $('#tabs').innerHTML = TABS.map(([k, t]) => `<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${k === S.tab}">${t}</button>`).join('');
+  if (S.A){
+    const tot = S.view.reduce((s, r) => s + r.h, 0);
+    $('#sub').textContent = `${S.A.F}–${S.A.L} 年度 · ${nf0.format(S.view.length)} 筆 · ${nf0.format(S.A.cust.size)} 位客戶 · 累計 ${big(tot)}`;
+  } else $('#sub').textContent = '尚無資料';
+}
+
+/* ---------- 圖表共用 ---------- */
+function killCharts(){ charts.forEach(c => c.destroy()); charts = []; }
+function baseOpts(o = {}){
+  const ink2 = css('--ink-2'), grid = css('--grid');
+  const valFmt = o.pct ? (v => (v*100).toFixed(0) + '%') : o.count ? (v => nf0.format(v)) : axisW;
+  const tipFmt = o.pct ? (v => pct(v)) : o.count ? (v => nf0.format(v) + (o.unit || '')) : big;
+  const valAxis = {beginAtZero:true, stacked:!!o.stacked, grid:{color:grid, drawTicks:false}, border:{display:false}, ticks:{color:ink2, padding:6, callback:valFmt, maxTicksLimit:6}};
+  if (o.pct) valAxis.max = 1;
+  const catAxis = {stacked:!!o.stacked, grid:{display:false}, border:{color:css('--line')}, ticks:{color:ink2, autoSkip:false, maxRotation:0}};
+  return {
+    responsive:true, maintainAspectRatio:false, animation:{duration:250},
+    indexAxis: o.horizontal ? 'y' : 'x',
+    interaction:{mode: o.line ? 'index' : 'nearest', intersect: !o.line, axis: o.horizontal ? 'y' : 'x'},
+    plugins:{
+      legend:{display:false},
+      tooltip:{backgroundColor:css('--ink'), titleColor:css('--bg'), bodyColor:css('--bg'), padding:10, boxPadding:4, usePointStyle:true,
+        callbacks:{label: ctx => ` ${ctx.dataset.label ? ctx.dataset.label + '：' : ''}${tipFmt(ctx.parsed[o.horizontal ? 'x' : 'y'])}`, ...(o.tipExtra || {})}}
+    },
+    scales: o.horizontal ? {x:valAxis, y:catAxis} : {x:catAxis, y:valAxis},
+    onClick: o.onClick
+  };
+}
+function mk(id, type, data, opts){
+  const el = document.getElementById(id); if (!el || !window.Chart) return;
+  charts.push(new Chart(el, {type, data, options:opts}));
+}
+const barDs = (label, data, color, extra = {}) => ({label, data, backgroundColor:color, borderRadius:4, borderSkipped:'start', maxBarThickness:38, borderColor:css('--panel'), borderWidth:{top:0,bottom:0,left:0,right:0}, ...extra});
+const legendHtml = items => `<div class="legend">${items.map(([n, c]) => `<span><i style="background:${c}"></i>${esc(n)}</span>`).join('')}</div>`;
+const card = (title, body, hint = '') => `<section class="card"><h2>${title}</h2>${hint ? `<p class="hint">${hint}</p>` : ''}${body}</section>`;
+const canvas = (id, cls = '') => `<div class="cv ${cls}"><canvas id="${id}" role="img" aria-label="圖表"></canvas></div>`;
+
+/* ---------- 主畫面 ---------- */
+function render(){
+  killCharts();
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === S.tab));
+  if (!window.Chart && S.tab !== 'data') { $('#main').innerHTML = '<div class="empty">圖表元件載入失敗，請重新整理頁面。</div>'; return; }
+  if (!S.A && S.tab !== 'data'){ S.tab = 'data'; }
+  ({overview:vOverview, rep:vRep, abc:vAbc, lost:vLost, new:vNew, cust:vCust, data:vData})[S.tab]();
+}
+
+function yearSums(rows){ const m = {}; for (const r of rows) m[r.y] = (m[r.y] || 0) + r.h; return m; }
+
+function vOverview(){
+  const {years, F} = S.A, Y = S.year, rows = fRows();
+  const sums = yearSums(rows);
+  const cy = rows.filter(r => r.y === Y), py = rows.filter(r => r.y === Y-1);
+  const newY = cy.filter(r => r.isNew === '新客人');
+  const aY = cy.filter(r => r.lvl === 'A');
+  const lostC = fCust().filter(c => c.status === '疑似跑單');
+  const tileRev = sums[Y] || 0, tilePrev = sums[Y-1] || 0;
+  const aShare = tileRev ? aY.reduce((s, r) => s + r.h, 0) / tileRev : 0;
+  const kpi = (k, v, d) => `<div class="kpi"><span class="k">${k}</span><span class="v">${v}</span><span class="d">${d}</span></div>`;
+  const repTxt = S.rep === '全部' ? '' : `（${esc(S.rep)}）`;
+  $('#main').innerHTML = `
+  <section class="kpis">
+    ${kpi(`${Y} 年營業額${repTxt}`, big(tileRev), `較 ${Y-1} 年 ${delta(tileRev, tilePrev)}`)}
+    ${kpi('交易客戶數', nf0.format(cy.length) + '<small>位</small>', `${Y-1} 年 ${nf0.format(py.length)} 位 ${delta(cy.length, py.length)}`)}
+    ${kpi('新客人', Y === F ? '—' : nf0.format(newY.length) + '<small>位</small>', Y === F ? '首年不判斷' : `貢獻 ${big(newY.reduce((s, r) => s + r.h, 0))}`)}
+    ${kpi('A 級客戶', nf0.format(aY.length) + '<small>位</small>', `占營業額 ${pct(aShare)}`)}
+    ${kpi('疑似跑單客戶（累計）', nf0.format(lostC.length) + '<small>位</small>', `最後下單在 ${S.A.L-2} 年（含）以前`)}
+  </section>
+  <div class="grid2">
+    ${card('歷年營業額', canvas('cRev'), '點選長條可切換分析年度')}
+    ${card('歷年交易客戶數', legendHtml([['現有客戶', css('--bar-dim')], ['新客人', css('--s3')]]) + canvas('cCnt'))}
+  </div>
+  <div class="grid2">
+    ${card(`${Y} 年前十大客戶`, canvas('cTop', 'tall'))}
+    ${card(`${Y} 年各業務營業額`, canvas('cRepY', 'tall'))}
+  </div>`;
+  mk('cRev', 'bar', {labels:years, datasets:[barDs('營業額', years.map(y => sums[y] || 0), years.map(y => y === Y ? css('--accent') : css('--bar-dim')))]},
+    baseOpts({onClick:(e, els) => { if (els.length){ setYear(years[els[0].index]); } }}));
+  const exist = years.map(y => rows.filter(r => r.y === y && r.isNew !== '新客人').length);
+  const neu = years.map(y => rows.filter(r => r.y === y && r.isNew === '新客人').length);
+  mk('cCnt', 'bar', {labels:years, datasets:[barDs('現有客戶', exist, css('--bar-dim')), barDs('新客人', neu, css('--s3'), {borderWidth:{top:2,bottom:0,left:0,right:0}, borderSkipped:false})]}, baseOpts({stacked:true, count:true, unit:' 位'}));
+  const top = cy.slice().sort((a, b) => b.h - a.h).slice(0, 10);
+  mk('cTop', 'bar', {labels:top.map(r => r.n), datasets:[barDs(`${Y} 年`, top.map(r => r.h), css('--bar'))]},
+    baseOpts({horizontal:true, tipExtra:{afterLabel: ctx => { const r = top[ctx.dataIndex]; const p = S.A.cust.get(r.id).amt[Y-1]; return ` 業務：${r.r}　層級：${r.lvl}　前年：${p ? big(p) : '未交易'}`; }}}));
+  const {major} = repGroups();
+  const byRep = {}; for (const r of cy) byRep[r.r || '(未填)'] = (byRep[r.r || '(未填)'] || 0) + r.h;
+  const reps = Object.entries(byRep).sort((a, b) => b[1] - a[1]);
+  mk('cRepY', 'bar', {labels:reps.map(x => x[0]), datasets:[barDs(`${Y} 年`, reps.map(x => x[1]), reps.map(x => repColor(x[0], major)))]}, baseOpts({horizontal:true}));
+}
+
+function vRep(){
+  const {years, L} = S.A, Y = S.year;
+  const {major, groupOf} = repGroups();
+  const rows = fRows();
+  const groups = S.rep === '全部' ? [...major, ...(repList().length > 5 ? ['其他'] : [])] : [S.rep];
+  const series = groups.map(g => ({g, data:years.map(y => rows.filter(r => r.y === y && (S.rep === '全部' ? groupOf(r.r) === g : true)).reduce((s, r) => s + r.h, 0))}));
+  // 表格
+  const reps = S.rep === '全部' ? repList() : [S.rep];
+  const totY = S.view.filter(r => r.y === Y).reduce((s, r) => s + r.h, 0);
+  const custAll = [...S.A.cust.values()];
+  const trs = reps.map(rep => {
+    const cy = S.view.filter(r => r.y === Y && (r.r || '(未填)') === rep), py = S.view.filter(r => r.y === Y-1 && (r.r || '(未填)') === rep);
+    const a = cy.reduce((s, r) => s + r.h, 0), p = py.reduce((s, r) => s + r.h, 0);
+    const t = {A:0, B:0, C:0}; cy.forEach(r => t[r.lvl]++);
+    const nw = cy.filter(r => r.isNew === '新客人').length;
+    const lost = custAll.filter(c => (c.rep || '(未填)') === rep && c.status === '疑似跑單').length;
+    return {rep, a, p, t, n:cy.length, nw, lost};
+  }).filter(x => x.a || x.p || x.n);
+  trs.sort((x, y) => y.a - x.a);
+  const maxA = Math.max(1, ...trs.map(x => x.a));
+  const moves = [];
+  for (const c of S.A.cust.values()) for (const m of c.moves) if (S.rep === '全部' || m.from === S.rep || m.to === S.rep) moves.push({c, ...m});
+  moves.sort((a, b) => b.y - a.y || (b.c.amt[b.y] || 0) - (a.c.amt[a.y] || 0));
+  const moveTbl = moves.length ? `<div class="tw" style="max-height:420px"><table><thead><tr><th class="l">客戶</th><th>接手年度</th><th class="l">原業務</th><th class="l">接手業務</th><th class="l">目前掛名</th><th>接手當年金額</th><th>歷年累計</th></tr></thead><tbody>
+    ${moves.map(m => `<tr><td class="l">${esc(m.c.name)} <span class="mut">${esc(m.c.id)}</span></td><td>${m.y}</td><td class="l">${esc(m.from)}</td><td class="l">${esc(m.to)}</td><td class="l">${esc(m.c.rep)}</td><td>${wan(m.c.amt[m.y] || 0)}</td><td>${wan(m.c.total)}</td></tr>`).join('')}
+  </tbody></table></div><p class="note">共 ${moves.length} 筆</p>` : '<div class="empty">目前資料中沒有客戶換過業務。之後上傳的資料若同一客戶換了業務，會自動列在這裡。</div>';
+  const table = `<div class="tw"><table><thead><tr><th class="l">業務</th><th>${Y} 營業額</th><th>${Y-1} 營業額</th><th>成長</th><th>占全公司</th><th>客戶數</th><th>A</th><th>B</th><th>C</th><th>新客人</th><th>疑似跑單（累計）</th></tr></thead><tbody>
+    ${trs.map(x => `<tr><td class="l"><i class="bar-in" style="width:10px;background:${repColor(x.rep, major)}"></i>${esc(x.rep)}</td><td><span class="bar-in" style="width:${Math.round(60 * x.a / maxA)}px"></span>${wan(x.a)}</td><td>${wan(x.p)}</td><td>${delta(x.a, x.p)}</td><td>${totY ? pct(x.a / totY) : '—'}</td><td>${x.n}</td><td>${x.t.A}</td><td>${x.t.B}</td><td>${x.t.C}</td><td>${x.nw}</td><td>${x.lost ? `<span class="down">${x.lost}</span>` : 0}</td></tr>`).join('') || '<tr><td colspan="11" class="empty">這一年沒有資料</td></tr>'}
+  </tbody></table></div>`;
+  $('#main').innerHTML = `
+    ${card('各業務歷年營業額趨勢', legendHtml(series.map(s => [s.g, repColor(s.g, major)])) + canvas('cRepLine', 'tall'), S.rep === '全部' ? '依歷年累計前五名的業務分線，其餘合併為「其他」' : '')}
+    ${card(`${Y} 年各業務業績`, table, `營業額、客戶數、ABC、新客人依「該年度」的業務計算；「疑似跑單」依客戶最後掛名的業務計算（最後下單年度在 ${L-2} 年含以前）`)}
+    ${card('客戶轉手紀錄', moveTbl, '同一客戶前後年度的業務不同時列出；客戶的掛名業務以最後一次掛名的人員為主')}
+    ${card(`${Y} 年各業務客戶層級分布`, legendHtml([['A 級（≥100 萬）', css('--tA')], ['B 級（30–100 萬）', css('--tB')], ['C 級（<30 萬）', css('--tC')]]) + canvas('cRepTier'))}`;
+  mk('cRepLine', 'line', {labels:years, datasets:series.map(s => ({label:s.g, data:s.data, borderColor:repColor(s.g, major), backgroundColor:repColor(s.g, major), borderWidth:2, pointRadius:3, pointHoverRadius:5, tension:.25}))}, baseOpts({line:true}));
+  mk('cRepTier', 'bar', {labels:trs.map(x => x.rep), datasets:['A', 'B', 'C'].map(t => barDs(t + ' 級', trs.map(x => x.t[t]), css('--t' + t), {borderWidth:{top:0,bottom:0,left:0,right:2}, borderSkipped:false}))}, baseOpts({horizontal:true, stacked:true, count:true, unit:' 位'}));
+}
+
+function vAbc(){
+  const {years} = S.A, Y = S.year, rows = fRows();
+  const cnt = t => years.map(y => rows.filter(r => r.y === y && r.lvl === t).length);
+  const share = t => years.map(y => { const all = rows.filter(r => r.y === y); const s = all.reduce((a, r) => a + r.h, 0); return s ? all.filter(r => r.lvl === t).reduce((a, r) => a + r.h, 0) / s : 0; });
+  // 層級移動矩陣（Y-1 → Y）
+  const cust = fCust();
+  const prevT = c => c.amt[Y-1] != null ? tierOf(c.amt[Y-1]) : '前年未交易';
+  const curT = c => c.amt[Y] != null ? tierOf(c.amt[Y]) : '今年未下單';
+  const rowsK = ['A', 'B', 'C', '前年未交易'], colsK = ['A', 'B', 'C', '今年未下單'];
+  const M = {}; rowsK.forEach(r => colsK.forEach(c => M[r + c] = 0));
+  cust.filter(c => c.amt[Y-1] != null || c.amt[Y] != null).forEach(c => M[prevT(c) + curT(c)]++);
+  const matrix = `<div class="tw"><table><thead><tr><th class="l">${Y-1} 年 ＼ ${Y} 年</th>${colsK.map(c => `<th>${c.length === 1 ? c + ' 級' : c}</th>`).join('')}</tr></thead><tbody>
+    ${rowsK.map(r => `<tr><td class="l">${r.length === 1 ? tierPill(r) + ' 級' : r}</td>${colsK.map(c => { const v = M[r + c]; const up = 'ABC'.indexOf(c) >= 0 && 'ABC'.indexOf(r) >= 0 && 'ABC'.indexOf(c) < 'ABC'.indexOf(r); const dn = ('ABC'.indexOf(c) > 'ABC'.indexOf(r) && 'ABC'.indexOf(r) >= 0) || (c === '今年未下單'); return `<td class="${v ? (up ? 'up' : dn ? 'down' : '') : 'mut'}">${v}</td>`; }).join('')}</tr>`).join('')}
+  </tbody></table></div>`;
+  const list = rows.filter(r => r.y === Y && r.lvl === S.abcTier).sort((a, b) => b.h - a.h);
+  const listTbl = `<div class="tw" style="max-height:460px"><table><thead><tr><th class="l">客戶</th><th class="l">編號</th><th class="l">業務</th><th>${Y} 金額</th><th>${Y-1} 金額</th><th>成長</th><th class="l">前年層級</th></tr></thead><tbody>
+    ${list.map(r => { const p = S.A.cust.get(r.id).amt[Y-1]; return `<tr><td class="l">${esc(r.n)}</td><td class="l mut">${esc(r.id)}</td><td class="l">${esc(r.r)}</td><td>${wan(r.h)}</td><td>${p != null ? wan(p) : '<span class="mut">—</span>'}</td><td>${delta(r.h, p)}</td><td class="l">${tierPill(r.prev)}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">沒有符合的客戶</td></tr>'}
+  </tbody></table></div>`;
+  const lg = legendHtml([['A 級', css('--tA')], ['B 級', css('--tB')], ['C 級', css('--tC')]]);
+  $('#main').innerHTML = `
+    <div class="rule"><span><b>分級規則</b>（依該年度實際總金額）</span><span>${tierPill('A')} 100 萬以上　${tierPill('B')} 30 萬以上、未滿 100 萬　${tierPill('C')} 未滿 30 萬</span></div>
+    <div class="grid2">
+      ${card('各年客戶數（依層級）', lg + canvas('cAbcCnt'))}
+      ${card('各年營業額占比（依層級）', lg + canvas('cAbcShare'), '少數 A 級客戶通常撐起大部分營業額')}
+    </div>
+    <div class="grid3">
+      <section class="card"><div class="flex"><h2>${Y} 年客戶清單</h2><div class="chips" id="abcChips">${['A', 'B', 'C'].map(t => `<button class="chip" type="button" data-t="${t}" aria-pressed="${S.abcTier === t}">${t} 級 ${rows.filter(r => r.y === Y && r.lvl === t).length}</button>`).join('')}</div></div>${listTbl}</section>
+      ${card(`層級變化：${Y-1} → ${Y}`, matrix, '綠色為升級、紅色為降級或今年沒下單（客戶數）')}
+    </div>`;
+  const stackDs = (t, data) => barDs(t + ' 級', data, css('--t' + t), {borderWidth:{top:2,bottom:0,left:0,right:0}, borderSkipped:false});
+  mk('cAbcCnt', 'bar', {labels:years, datasets:['C', 'B', 'A'].map(t => stackDs(t, cnt(t)))}, baseOpts({stacked:true, count:true, unit:' 位'}));
+  mk('cAbcShare', 'bar', {labels:years, datasets:['C', 'B', 'A'].map(t => stackDs(t, share(t)))}, baseOpts({stacked:true, pct:true}));
+  $('#abcChips').onclick = e => { const b = e.target.closest('[data-t]'); if (b){ S.abcTier = b.dataset.t; render(); } };
+}
+
+function vLost(){
+  const {years, L} = S.A;
+  const cust = fCust();
+  const lost = cust.filter(c => c.status === '疑似跑單');
+  const watch = cust.filter(c => c.lastPos === L-1).sort((a, b) => b.lastAmt - a.lastAmt);
+  const lastYears = years.filter(y => y <= L-2);
+  const {major} = repGroups();
+  let list = lost.filter(c => S.lostTier === '全部' || c.peakTier === S.lostTier);
+  if (S.lostQ) { const q = S.lostQ.toLowerCase(); list = list.filter(c => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)); }
+  list.sort((a, b) => b.total - a.total);
+  const lostLastSum = lost.reduce((s, c) => s + c.lastAmt, 0);
+  const kpi = (k, v, d) => `<div class="kpi"><span class="k">${k}</span><span class="v">${v}</span><span class="d">${d}</span></div>`;
+  const repCount = {}; lost.forEach(c => { const k = c.rep || '(未填)'; repCount[k] = repCount[k] || {A:0, B:0, C:0}; repCount[k][c.peakTier]++; });
+  const repK = Object.keys(repCount).sort((a, b) => (repCount[b].A + repCount[b].B + repCount[b].C) - (repCount[a].A + repCount[a].B + repCount[a].C));
+  $('#main').innerHTML = `
+    <div class="rule"><span><b>判斷規則</b>：${L-1}、${L} 年的資料不判斷。某年有下單、之後到 ${L} 年都沒再下單，或 ${L-4}–${L} 年完全沒下單，即列為「疑似跑單」。</span><span>例：最後一次下單在 106 年，之後到 ${L} 年都沒有訂單 → 疑似跑單。上傳新年度後，判斷區間會自動往後移。</span></div>
+    <section class="kpis">
+      ${kpi('疑似跑單客戶', nf0.format(lost.length) + '<small>位</small>', `占全部客戶 ${pct(lost.length / Math.max(1, cust.length))}`)}
+      ${kpi('曾為 A 級的跑單客戶', nf0.format(lost.filter(c => c.peakTier === 'A').length) + '<small>位</small>', '單年最高金額 ≥ 100 萬')}
+      ${kpi('跑單前最後一年營業額合計', big(lostLastSum), '可視為流失的年營業額規模')}
+      ${kpi(`觀察名單（${L-1} 有、${L} 無）`, nf0.format(watch.length) + '<small>位</small>', `${L-1} 年金額合計 ${big(watch.reduce((s, c) => s + c.lastAmt, 0))}`)}
+    </section>
+    <div class="grid2">
+      ${card('依最後下單年度', canvas('cLostY'), '每年有多少客戶在那一年之後就沒再下單')}
+      ${card('各業務的疑似跑單客戶', legendHtml([['曾為 A 級', css('--tA')], ['曾為 B 級', css('--tB')], ['C 級', css('--tC')]]) + canvas('cLostRep'), '依客戶歷年最高層級')}
+    </div>
+    <section class="card">
+      <div class="flex"><h2>疑似跑單客戶清單</h2>
+        <div class="chips"><span class="note">最高層級</span><span id="lostChips" class="chips">${['全部', 'A', 'B', 'C'].map(t => `<button class="chip" type="button" data-t="${t}" aria-pressed="${S.lostTier === t}">${t}</button>`).join('')}</span>
+        <input type="search" id="lostQ" placeholder="搜尋客戶名稱或編號" value="${esc(S.lostQ)}"></div></div>
+      <div class="tw" style="max-height:520px"><table><thead><tr><th class="l">客戶</th><th class="l">編號</th><th class="l">掛名業務</th><th>最後下單年度</th><th>最後一年金額</th><th>歷年累計</th><th>最高年度金額</th><th class="l">最高層級</th><th>交易年數</th></tr></thead><tbody id="lostBody">
+      ${list.map(c => `<tr><td class="l">${esc(c.name)}</td><td class="l mut">${esc(c.id)}</td><td class="l">${repCell(c)}</td><td>${c.lastPos}</td><td>${wan(c.lastAmt)}</td><td>${wan(c.total)}</td><td>${wan(c.peak)}<span class="mut">（${c.peakY}）</span></td><td class="l">${tierPill(c.peakTier)}</td><td>${c.nYears}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">沒有符合的客戶</td></tr>'}
+      </tbody></table></div>
+      <p class="note">共 ${list.length} 位，依歷年累計金額排序</p>
+    </section>
+    ${card(`觀察名單：${L-1} 年有下單、${L} 年尚未下單`, `<div class="tw" style="max-height:420px"><table><thead><tr><th class="l">客戶</th><th class="l">掛名業務</th><th>${L-1} 金額</th><th class="l">${L-1} 層級</th><th>歷年累計</th><th>首次交易</th></tr></thead><tbody>${watch.map(c => `<tr><td class="l">${esc(c.name)}</td><td class="l">${repCell(c)}</td><td>${wan(c.lastAmt)}</td><td class="l">${tierPill(tierOf(c.lastAmt))}</td><td>${wan(c.total)}</td><td>${c.first}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">沒有</td></tr>'}</tbody></table></div>`, '依規則還不判斷，但值得業務主動關心')}`;
+  mk('cLostY', 'bar', {labels:lastYears, datasets:[barDs('跑單客戶數', lastYears.map(y => lost.filter(c => c.lastPos === y).length), css('--bad'))]},
+    baseOpts({count:true, unit:' 位', tipExtra:{afterLabel: ctx => ` 最後一年營業額：${big(lost.filter(c => c.lastPos === lastYears[ctx.dataIndex]).reduce((s, c) => s + c.lastAmt, 0))}`}}));
+  mk('cLostRep', 'bar', {labels:repK, datasets:['A', 'B', 'C'].map(t => barDs((t === 'C' ? '' : '曾為 ') + t + ' 級', repK.map(k => repCount[k][t]), css('--t' + t), {borderWidth:{top:0,bottom:0,left:0,right:2}, borderSkipped:false}))}, baseOpts({horizontal:true, stacked:true, count:true, unit:' 位'}));
+  $('#lostChips').onclick = e => { const b = e.target.closest('[data-t]'); if (b){ S.lostTier = b.dataset.t; render(); } };
+  const qi = $('#lostQ'); qi.oninput = () => { S.lostQ = qi.value; clearTimeout(qi._t); qi._t = setTimeout(() => { render(); const n = $('#lostQ'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+}
+
+function vNew(){
+  const {years, L, F} = S.A, Y = S.year, rows = fRows();
+  const ny = years.filter(y => y !== F);
+  const newRows = rows.filter(r => r.isNew === '新客人');
+  const stats = ny.map(y => {
+    const n = newRows.filter(r => r.y === y);
+    const rev = n.reduce((s, r) => s + r.h, 0);
+    const next = y < L ? n.filter(r => S.A.cust.get(r.id).amt[y+1] != null).length : null;
+    const still = n.filter(r => S.A.cust.get(r.id).lastPos != null && S.A.cust.get(r.id).lastPos >= L-1).length;
+    const ab = n.filter(r => r.lvl !== 'C').length;
+    return {y, n:n.length, rev, next, still, ab};
+  });
+  const list = rows.filter(r => r.y === Y && r.isNew === '新客人').sort((a, b) => b.h - a.h);
+  $('#main').innerHTML = `
+    <div class="rule"><span><b>判斷規則</b>：${F} 年為第一年不判斷；之後某年出現、且在之前年度從未出現過的客戶編號，即為該年「新客人」。</span></div>
+    <div class="grid2">
+      ${card('各年新客人數', canvas('cNewN'))}
+      ${card('新客人首年營業額', canvas('cNewR'))}
+    </div>
+    <div class="grid2">
+      ${card('新客人留存', `<div class="tw"><table><thead><tr><th class="l">年度</th><th>新客人</th><th>首年營業額</th><th>首年 A/B 級</th><th>隔年續單率</th><th>至今仍在（${L-1}–${L} 有下單）</th></tr></thead><tbody>${stats.slice().reverse().map(s => `<tr><td class="l">${s.y}</td><td>${s.n}</td><td>${wan(s.rev)}</td><td>${s.ab}</td><td>${s.next == null ? '<span class="mut">—</span>' : s.n ? pct(s.next / s.n, 0) : '—'}</td><td>${s.n ? pct(s.still / s.n, 0) : '—'}</td></tr>`).join('')}</tbody></table></div>`, '隔年續單率 = 首次交易隔年仍有交易的比例')}
+      ${card(`${Y} 年新客人清單`, Y === F ? '<div class="empty">首年不判斷</div>' : `<div class="tw" style="max-height:420px"><table><thead><tr><th class="l">客戶</th><th class="l">業務</th><th>${Y} 金額</th><th class="l">層級</th><th class="l">隔年續單</th></tr></thead><tbody>${list.map(r => { const nx = S.A.cust.get(r.id).amt[Y+1]; return `<tr><td class="l">${esc(r.n)}</td><td class="l">${esc(r.r)}</td><td>${wan(r.h)}</td><td class="l">${tierPill(r.lvl)}</td><td class="l">${Y >= L ? '<span class="mut">尚無資料</span>' : nx != null ? `<span class="pill pGood">✓ ${wan(nx)}</span>` : '<span class="pill pBad">✕ 沒有</span>'}</td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">這一年沒有新客人</td></tr>'}</tbody></table></div><p class="note">共 ${list.length} 位，合計 ${big(list.reduce((s, r) => s + r.h, 0))}</p>`)}
+    </div>`;
+  const col = y => y === Y ? css('--s3') : css('--bar-dim');
+  mk('cNewN', 'bar', {labels:ny, datasets:[barDs('新客人', stats.map(s => s.n), ny.map(col))]}, baseOpts({count:true, unit:' 位', onClick:(e, els) => { if (els.length) setYear(ny[els[0].index]); }}));
+  mk('cNewR', 'bar', {labels:ny, datasets:[barDs('首年營業額', stats.map(s => s.rev), ny.map(col))]}, baseOpts({onClick:(e, els) => { if (els.length) setYear(ny[els[0].index]); }}));
+}
+
+function vCust(){
+  const {years} = S.A;
+  let list = fCust();
+  if (S.q){ const q = S.q.toLowerCase(); list = list.filter(c => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)); }
+  list.sort((a, b) => b.total - a.total);
+  const shown = list.slice(0, 200);
+  const ys = years.slice().reverse();
+  $('#main').innerHTML = `<section class="card">
+    <div class="flex"><h2>客戶歷年明細</h2><input type="search" id="custQ" placeholder="搜尋客戶名稱或編號" value="${esc(S.q)}"></div>
+    <div class="tw" style="max-height:640px"><table><thead><tr><th class="l">客戶</th><th class="l">掛名業務</th><th class="l">狀態</th><th>累計</th>${ys.map(y => `<th>${y}</th>`).join('')}</tr></thead><tbody>
+      ${shown.map(c => `<tr><td class="l">${esc(c.name)} <span class="mut">${esc(c.id)}</span></td><td class="l">${repCell(c)}</td><td class="l">${c.first === S.A.L && S.A.L !== S.A.F ? '<span class="pill pGood">新客人</span>' : statusPill(c.status)}</td><td>${wan(c.total)}</td>${ys.map(y => { const v = c.amt[y]; return v == null ? '<td class="mut">·</td>' : `<td title="${tierOf(v)} 級">${nf0.format(Math.round(v / 1e4))}<span class="mut" style="font-size:11px"> ${tierOf(v)}</span></td>`; }).join('')}</tr>`).join('') || `<tr><td colspan="${4 + ys.length}" class="empty">找不到符合的客戶</td></tr>`}
+    </tbody></table></div>
+    <p class="note">金額單位：萬元，旁邊字母為當年層級。${list.length > 200 ? `共 ${list.length} 位，顯示累計金額前 200 位，可用搜尋找其他客戶。` : `共 ${list.length} 位。`}</p></section>`;
+  const qi = $('#custQ'); qi.oninput = () => { S.q = qi.value; clearTimeout(qi._t); qi._t = setTimeout(() => { render(); const n = $('#custQ'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+}
+
+function vData(){
+  const years = S.A ? S.A.years.slice().reverse() : [];
+  const p = S.pending;
+  const ysum = y => { const r = S.rows.filter(x => x.y === y); return {n:r.length, s:r.reduce((a, x) => a + x.h, 0)}; };
+  const nameOf = id => { const r = S.rows.slice().reverse().find(x => x.id === id); return r ? r.n : '(找不到)'; };
+  const fmtT = t => t ? new Date(t).toLocaleString('zh-TW', {hour12:false}) : '未記錄';
+  const srcNote = IN_CLAUDE ? '匯入、移除或合併後會自動存成網頁的新版本。'
+    : S.source === 'local' ? `<span class="pill pWarn">本機版本</span> 目前顯示的是這台電腦瀏覽器裡的資料（${fmtT(S.updated)}），比 GitHub 上的 data.enc.json 新。要讓其他人也看到，請下載 data.enc.json 上傳到 GitHub。`
+    : S.source === 'file' ? `<span class="pill pGood">GitHub 版本</span> 目前顯示的是網站上的 data.enc.json（${fmtT(S.updated)}）。`
+    : '網站上還沒有資料，請先上傳 Excel 並設定密碼。';
+  const dlName = IN_CLAUDE ? 'data.json' : 'data.enc.json';
+  const gm = new Map();
+  for (const a of Object.keys(S.merge)){ const m = canon(a); if (!gm.has(m)) gm.set(m, []); gm.get(m).push(a); }
+  const totalOf = m => S.view.filter(r => r.id === m).reduce((t, r) => t + r.h, 0);
+  const groups = [...gm.entries()].map(([main, olds]) => ({main, olds:olds.sort()})).sort((a, b) => a.main.localeCompare(b.main));
+  const custOpts = [...new Map(S.rows.slice().reverse().map(r => [r.id, r.n])).entries()].sort().map(([id, n]) => `<option value="${esc(id)} ${esc(n)}"></option>`).join('');
+  $('#main').innerHTML = `
+    <section class="card">
+      <h2>上傳新年度業績</h2>
+      <p class="hint">上傳和原本統整表相同欄位的 Excel（至少需要：年度、對象編號、對象簡稱、合計金額(本)、實際總金額(NTD)、業務）。可以只放新年度，也可以整份上傳；檔案裡有的年度會取代舊資料，其他年度保留。客戶層級、新客人、疑似跑單會自動重新計算。</p>
+      <div class="drop" id="drop"><b>把 Excel 檔拖曳到這裡</b><span class="note">或</span><button type="button" class="primary" id="btnPick">選擇檔案</button></div>
+      ${p ? `<div class="preview">
+        <b>預覽：${esc(p.file)}</b>
+        ${p.needYear ? `<label for="pYear">檔案沒有「年度」欄，請輸入這份資料的年度：<input type="number" id="pYear" value="${p.year}" style="width:100px"></label>` : ''}
+        <div class="tw"><table><thead><tr><th class="l">年度</th><th>筆數</th><th>實際總金額</th><th class="l">處理方式</th></tr></thead><tbody>
+          ${p.summary().map(s => `<tr><td class="l">${s.y}</td><td>${s.n}</td><td>${big(s.s)}</td><td class="l">${s.exist ? `<span class="pill pWarn">取代原有 ${s.exist} 筆</span>` : '<span class="pill pGood">新增</span>'}</td></tr>`).join('')}
+        </tbody></table></div>
+        ${p.warn.length ? `<p class="note">${p.warn.map(esc).join('<br>')}</p>` : ''}
+        <div class="chips"><button class="primary" type="button" id="btnApply">確認匯入並更新</button><button type="button" id="btnCancel">取消</button></div>
+      </div>` : ''}
+    </section>
+    <section class="card">
+      <div class="flex"><h2>目前資料</h2><div class="chips"><button type="button" id="btnJson">下載 ${dlName}</button><button type="button" id="btnXlsx">下載統整 Excel（含計算欄位）</button></div></div>
+      <p class="note" id="saveNote">${srcNote}</p>
+      ${S.source === 'local' && S.baseUpdated !== undefined && !IN_CLAUDE ? `<div class="chips">${S.delLocal ? '<button type="button" class="danger" id="btnLocalOk">確定清除，改回 GitHub 版本</button><button type="button" id="btnLocalNo">取消</button>' : '<button type="button" id="btnLocal">清除本機版本</button>'}</div>` : ''}
+      <div class="tw"><table><thead><tr><th class="l">年度</th><th>筆數</th><th>實際總金額</th><th class="l"></th></tr></thead><tbody>
+        ${years.map(y => { const s = ysum(y); return `<tr><td class="l">${y} 年</td><td>${s.n}</td><td>${big(s.s)}</td><td class="l">${S.delYear === y ? `<span class="chips"><button type="button" class="danger" data-delok="${y}">確定移除 ${y} 年</button><button type="button" data-delno="1">取消</button></span>` : `<button type="button" data-del="${y}">移除</button>`}</td></tr>`; }).join('') || '<tr><td colspan="4" class="empty">尚無資料</td></tr>'}
+      </tbody></table></div>
+    </section>
+    <section class="card">
+      <h2>客戶合併</h2>
+      <p class="hint">同一位客戶用了不同編號（例如換過名稱或重新建檔）時，在這裡合併。合併後歷年金額算在主編號底下，新客人、跑單、ABC 都會照合併後重算；原始資料不會被改掉，隨時可以取消。</p>
+      <div class="tw"><table><thead><tr><th class="l">主編號（合併後名稱）</th><th class="l">併入的編號</th><th>合併後累計</th><th class="l">加入其他編號</th></tr></thead><tbody>
+        ${groups.map(g => `<tr><td class="l" style="white-space:normal">${esc(g.main)} <span class="mut">${esc(nameOf(g.main))}</span></td>
+          <td class="l" style="white-space:normal"><div class="chips">${g.olds.map(a => `<span class="pill pMuted" style="font-weight:500;padding:3px 4px 3px 10px">${esc(a)} ${esc(nameOf(a))} <button type="button" class="chip" style="min-height:22px;padding:0 8px;margin-left:4px" data-unmerge="${esc(a)}" title="取消合併 ${esc(a)}" aria-label="取消合併 ${esc(a)}">✕</button></span>`).join('')}</div></td>
+          <td>${wan(totalOf(g.main))}</td>
+          <td class="l"><span class="chips"><input type="search" list="custList" data-addto="${esc(g.main)}" placeholder="編號或名稱" style="width:170px" aria-label="加入其他編號到 ${esc(g.main)}"><button type="button" data-addbtn="${esc(g.main)}">加入</button></span></td></tr>`).join('') || '<tr><td colspan="4" class="empty">目前沒有合併設定</td></tr>'}
+      </tbody></table></div>
+      <datalist id="custList">${custOpts}</datalist>
+      <div class="chips">
+        <label for="mTo" class="note">主編號</label><input type="search" id="mTo" list="custList" placeholder="輸入編號或名稱" style="width:220px" value="${esc(S.mTo || '')}">
+        <span class="mut">←</span>
+        <label for="mFrom" class="note">要併入的編號</label><input type="search" id="mFrom" list="custList" placeholder="可一次輸入多個，用逗號分開" style="width:260px">
+        <button type="button" class="primary" id="btnMerge">合併</button>
+      </div>
+      <p class="note">一個主編號可以併入多個編號（例如兩家併到同一家）。合併後同一年的金額會相加，名稱與業務以主編號為準。</p>
+    </section>
+    ${IN_CLAUDE ? '' : `<section class="card">
+      <h2>${S.pass ? '更改密碼' : '設定密碼'}</h2>
+      <p class="hint">資料會用這組密碼加密後才存到瀏覽器和 GitHub。${S.pass ? '更改後請下載新的 data.enc.json 上傳到 GitHub 覆蓋，舊檔案在被覆蓋前仍用舊密碼開啟。' : '設定後才能儲存與下載加密資料檔。'}建議至少 12 個字元並混合英文與數字。</p>
+      <form id="pwForm" class="chips"><label for="pw1" class="note">新密碼</label><input type="password" id="pw1" autocomplete="new-password" required style="width:180px"><label for="pw2" class="note">再輸入一次</label><input type="password" id="pw2" autocomplete="new-password" required style="width:180px"><button type="submit" class="primary">${S.pass ? '更改密碼' : '設定密碼'}</button></form>
+    </section>`}`;
+  const drop = $('#drop');
+  $('#btnPick').onclick = () => $('#fileIn').click();
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) readFile(f); };
+  if (p){
+    $('#btnCancel').onclick = () => { S.pending = null; render(); };
+    $('#btnApply').onclick = applyPending;
+    const py = $('#pYear'); if (py) py.onchange = () => { p.year = +py.value; p.rows.forEach(r => r.y = p.year); render(); };
+  }
+  $('#main').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { S.delYear = +b.dataset.del; render(); });
+  $('#main').querySelectorAll('[data-delno]').forEach(b => b.onclick = () => { S.delYear = null; render(); });
+  $('#main').querySelectorAll('[data-delok]').forEach(b => b.onclick = () => { const y = +b.dataset.delok; S.rows = S.rows.filter(r => r.y !== y); S.delYear = null; afterChange(`已移除 ${y} 年資料`); });
+  $('#main').querySelectorAll('[data-unmerge]').forEach(b => b.onclick = () => { delete S.merge[b.dataset.unmerge]; afterChange('已取消合併'); });
+  const ids = new Set(S.rows.map(r => r.id));
+  const pickId = v => { v = (v || '').trim(); const t = v.split(/\s+/)[0]; if (ids.has(t)) return t; const hit = S.rows.slice().reverse().find(r => r.n === v || r.n.includes(v)); return v && hit ? hit.id : null; };
+  const doMerge = (main, list) => {
+    const m0 = pickId(main), m = m0 && canon(m0); if (!m){ toast('找不到主編號，請從下拉選單選擇'); return; }
+    const olds = String(list || '').split(/[,，、;；]/).map(x => x.trim()).filter(Boolean).map(x => [x, pickId(x)]);
+    const bad = olds.filter(o => !o[1]).map(o => o[0]);
+    if (!olds.length){ toast('請輸入要併入的編號'); return; }
+    if (bad.length){ toast('找不到：' + bad.join('、')); return; }
+    const done = [];
+    for (const [, a] of olds){
+      if (a === m || canon(m) === a){ toast(`${a} 是主編號本身，不能併入`); return; }
+      S.merge[a] = m;
+      for (const k in S.merge) if (S.merge[k] === a) S.merge[k] = m; // 原本併到 a 的也一起改到主編號
+      done.push(a);
+    }
+    S.mTo = m; afterChange(`已把 ${done.join('、')} 併入 ${m}`);
+  };
+  $('#btnMerge').onclick = () => doMerge($('#mTo').value, $('#mFrom').value);
+  $('#main').querySelectorAll('[data-addbtn]').forEach(b => b.onclick = () => { const i = $('#main').querySelector(`[data-addto="${CSS.escape(b.dataset.addbtn)}"]`); doMerge(b.dataset.addbtn, i.value); });
+
+  const bl = $('#btnLocal'); if (bl) bl.onclick = () => { S.delLocal = true; render(); };
+  const bn = $('#btnLocalNo'); if (bn) bn.onclick = () => { S.delLocal = false; render(); };
+  const bo = $('#btnLocalOk'); if (bo) bo.onclick = () => { try{ localStorage.removeItem('sales.enc'); }catch(e){} S.delLocal = false; S.pass = null; load(); toast('已清除本機版本'); };
+  $('#btnJson').onclick = async () => {
+    if (IN_CLAUDE){ saveFile('data.json', new Blob([JSON.stringify(payload())], {type:'application/json'})); return; }
+    if (!S.pass){ toast('請先在下方設定密碼'); $('#pw1').focus(); return; }
+    toast('加密中…', 3000);
+    saveFile('data.enc.json', new Blob([JSON.stringify(await encryptObj(payload(), S.pass))], {type:'application/json'}));
+  };
+  const pf = $('#pwForm'); if (pf) pf.onsubmit = e => {
+    e.preventDefault();
+    const a = $('#pw1').value, b = $('#pw2').value;
+    if (a !== b){ toast('兩次輸入的密碼不一樣'); return; }
+    if (a.length < 6){ toast('密碼至少 6 個字元'); return; }
+    const had = !!S.pass; S.pass = a;
+    afterChange(had ? '已更改密碼' : '已設定密碼');
+  };
+  $('#btnXlsx').onclick = downloadXlsx;
+  if (!S.A){ $('#btnJson').hidden = true; $('#btnXlsx').hidden = true; }
+}
+
+/* ---------- 上傳 / 匯入 ---------- */
+const COLS = {y:['年度'], id:['對象編號', '客戶編號', '客戶代號'], n:['對象簡稱', '客戶簡稱', '客戶名稱'], d:['合計金額'], h:['實際總金額'], disc:['折讓金額'], r:['業務']};
+function readFile(f){
+  if (!window.XLSX){ toast('Excel 讀取元件載入失敗，請重新整理頁面'); return; }
+  const fr = new FileReader();
+  fr.onload = () => {
+    try{
+      const wb = XLSX.read(new Uint8Array(fr.result), {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+      let hi = aoa.findIndex((row, i) => i < 15 && row && row.some(c => typeof c === 'string' && COLS.id.some(k => c.includes(k))));
+      if (hi < 0) throw new Error('找不到「對象編號」欄位，請確認第一列是欄位名稱');
+      const head = aoa[hi].map(c => String(c ?? '').replace(/\s/g, ''));
+      const idx = {}; for (const k in COLS) idx[k] = head.findIndex(h => COLS[k].some(w => h.includes(w)));
+      const miss = ['id', 'n', 'r'].filter(k => idx[k] < 0).map(k => COLS[k][0]);
+      if (idx.d < 0 && idx.h < 0) miss.push('合計金額 或 實際總金額');
+      if (miss.length) throw new Error('缺少欄位：' + miss.join('、'));
+      const num = v => { if (v == null || v === '') return 0; const x = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, '')); return isFinite(x) ? x : 0; };
+      const warn = [];
+      const needYear = idx.y < 0;
+      const defYear = (S.A ? S.A.L : 113) + 1;
+      const rows = [];
+      for (let i = hi + 1; i < aoa.length; i++){
+        const a = aoa[i]; if (!a) continue;
+        const id = a[idx.id]; if (id == null || String(id).trim() === '') continue;
+        let y = needYear ? defYear : parseInt(a[idx.y], 10);
+        if (!needYear && !(y > 0)) continue;
+        if (y > 1911) y -= 1911; // 西元轉民國
+        const d = idx.d >= 0 ? num(a[idx.d]) : num(a[idx.h]);
+        const h = idx.h >= 0 ? num(a[idx.h]) : d - (idx.disc >= 0 ? num(a[idx.disc]) : 0);
+        rows.push({y, id:String(id).trim(), n:String(a[idx.n] ?? '').trim(), d:Math.round(d), h:Math.round(h), r:String(a[idx.r] ?? '').trim()});
+      }
+      if (!rows.length) throw new Error('檔案裡沒有可匯入的資料列');
+      if (idx.h < 0) warn.push('沒有「實際總金額」欄，改用合計金額' + (idx.disc >= 0 ? '扣除折讓' : '') + '計算。');
+      // 同年同客戶多列 → 合併
+      const m = new Map();
+      for (const r of rows){ const k = r.y + '|' + r.id; const o = m.get(k); if (o){ o.d += r.d; o.h += r.h; } else m.set(k, r); }
+      if (m.size < rows.length) warn.push(`同一年同一客戶有多列，已合併（${rows.length} 列 → ${m.size} 位客戶）。`);
+      const noRep = [...m.values()].filter(r => !r.r).length;
+      if (noRep) warn.push(`${noRep} 筆沒有填業務。`);
+      S.pending = {file:f.name, rows:[...m.values()], warn, needYear, year:defYear,
+        summary(){ const g = {}; this.rows.forEach(r => { g[r.y] = g[r.y] || {y:r.y, n:0, s:0}; g[r.y].n++; g[r.y].s += r.h; });
+          return Object.values(g).sort((a, b) => a.y - b.y).map(s => ({...s, exist:S.rows.filter(r => r.y === s.y).length})); }};
+      S.tab = 'data'; buildControls(); render();
+    }catch(e){ toast('無法讀取檔案：' + (e.message || e)); }
+  };
+  fr.readAsArrayBuffer(f);
+}
+function applyPending(){
+  const p = S.pending; if (!p) return;
+  const ys = new Set(p.rows.map(r => r.y));
+  S.rows = S.rows.filter(r => !ys.has(r.y)).concat(p.rows);
+  S.pending = null;
+  const maxY = Math.max(...ys);
+  S.year = null;
+  afterChange(`已匯入 ${[...ys].sort().join('、')} 年資料`, maxY);
+}
+async function afterChange(msg, focusYear){
+  S.updated = new Date().toISOString();
+  recompute();
+  if (focusYear && S.A && S.A.years.includes(focusYear)) S.year = focusYear;
+  buildControls(); render();
+  if (!IN_CLAUDE){
+    if (!S.pass){ toast(msg + '。請到「資料管理」設定密碼，才能儲存並下載加密資料檔。', 9000); if (S.tab === 'data') render(); return; }
+    let ok = false;
+    try{ localStorage.setItem('sales.enc', JSON.stringify(await encryptObj(payload(), S.pass))); ok = true; }catch(e){}
+    S.source = ok ? 'local' : S.source;
+    if (S.tab === 'data') render();
+    toast(ok ? msg + '。已加密存在這台電腦的瀏覽器；要讓其他人也看到，請到「資料管理」下載 data.enc.json 上傳到 GitHub。' : msg + '。瀏覽器無法儲存，重新整理後會回到原本資料，請先下載 data.enc.json。', 9000);
+    return;
+  }
+  toast(msg + '，儲存中…', 8000);
+  try{
+    const art = await window.claude.use('artifact');
+    if (!art) throw {code:'unavailable'};
+    await art.publish({'data.json': {content:JSON.stringify(payload()), contentType:'application/json'}});
+    toast(msg + '，已儲存，之後打開網頁都是最新資料。');
+  }catch(e){
+    const c = e && e.code;
+    const why = c === 'not_writer' || c === 'not_granted' ? '你只有檢視權限，' : c === 'conflict' ? '有其他人剛更新過資料，頁面會重新載入，' : '';
+    toast(msg + '。' + why + '這次的變更只在目前畫面有效，沒有存回網頁。', 9000);
+    const n = $('#saveNote'); if (n) n.textContent = '這次的變更沒有存回網頁（' + (c || '無法儲存') + '），重新整理後會回到原本資料。';
+  }
+}
+
+/* ---------- 下載 ---------- */
+async function saveFile(filename, blob){
+  if (IN_CLAUDE){
+    try{
+      const dl = await window.claude.use('downloads');
+      if (dl){ await dl.save({filename, data:blob}); return; }
+    }catch(e){ if (e && e.code && e.code !== 'unavailable') return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function downloadXlsx(){
+  if (!S.A || !window.XLSX){ toast('Excel 元件載入失敗，請重新整理頁面'); return; }
+  const head = ['年度', '對象編號', '對象簡稱', '原始編號', '合計金額(本)', '實際總金額(NTD)', '客戶層級', '前年層級', '新客人', '消失客人', '業務', '掛名業務(最後)'];
+  const aoa = [head, ...S.view.map(r => [r.y, r.id, r.n, r.orig, r.d, r.h, r.lvl, r.prev, r.isNew, r.gone, r.r, S.A.cust.get(r.id).rep])];
+  const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = head.map((h, i) => ({wch: i === 2 ? 18 : 12}));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `${S.A.F}~${S.A.L}統整`);
+  const buf = XLSX.write(wb, {type:'array', bookType:'xlsx'});
+  saveFile(`業績統整_${S.A.F}-${S.A.L}.xlsx`, new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+}
+
+
+/* ---------- 事件 ---------- */
+function setYear(y){ S.year = y; store('year', y); $('#selYear').value = y; render(); }
+$('#selYear').onchange = e => setYear(+e.target.value);
+$('#selRep').onchange = e => { S.rep = e.target.value; store('rep', S.rep); render(); };
+$('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (!b) return; S.tab = b.dataset.tab; store('tab', S.tab); render(); window.scrollTo({top:0}); };
+$('#btnUpload').onclick = () => $('#fileIn').click();
+$('#lockBtn').onclick = () => location.reload();
+$('#fileIn').onchange = e => { const f = e.target.files[0]; if (f) readFile(f); e.target.value = ''; };
+let themeT; const reTheme = () => { clearTimeout(themeT); themeT = setTimeout(() => { if (S.A || S.tab === 'data') render(); }, 60); };
+try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', reTheme); }catch(e){}
+new MutationObserver(reTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+if (window.Chart){ Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; Chart.defaults.font.size = 12; }
+load();
+</script>
+</body>
+</html>
