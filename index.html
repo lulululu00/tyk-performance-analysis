@@ -684,6 +684,7 @@ function itModel(y0, y1, rep){
   const C = new Map();
   for (const r of P.rows){
     const s = r.y === y0 ? 0 : r.y === y1 ? 1 : -1; if (s < 0 || !inc(r.c, r.y)) continue;
+    if (P.keys[r.k].kind === 'F' || P.keys[r.k].kind === 'A') continue; // 版費、模具費、折讓等不計算
     if (ws.length){ const K0 = P.keys[r.k], t = (r.b + ' ' + K0.disp + ' ' + K0.color).toLowerCase(); if (!ws.every(w => t.includes(w))) continue; }
     let o = C.get(r.c); if (!o){ const ca = S.A.cust.get(r.c); o = {id:r.c, name:ca ? ca.name : r.c, t0:0, t1:0, sp:new Map()}; C.set(r.c, o); }
     const K = P.keys[r.k], fa = K.kind === 'F' || K.kind === 'A', bk = (fa ? '§' : '') + r.b;
@@ -860,7 +861,7 @@ function vItem(){
         <div class="chips" id="itCtl"></div>
       </div>
       <div class="chips"><input type="search" id="itGq" placeholder="🔍 搜尋品項：型號、品名、顏色或牙徑（例：CTR150 透明、潔淨露、24/410）" value="${esc(IT.gq || '')}" autocomplete="off" style="flex:1;min-width:240px;max-width:640px;font-size:16px;min-height:46px"><span class="note" id="itGn"></span></div>
-      <p class="note" style="margin:0">資料：三家抬頭對帳單明細 ${ys[0]}–${lastY} 年（以訂單月份計算回單），每位客戶每年金額與網站業績一致。「距今」算到 ${lastY} 年 12 月；${lastY + 1} 年明細還沒進來。${S.rep === '全部' ? '' : `目前看：<b>${esc(S.rep)}</b> 掛名的客戶。`}</p>
+      <p class="note" style="margin:0">資料：三家抬頭對帳單明細 ${ys[0]}–${lastY} 年（以訂單月份計算回單），品項金額不含版費、模具費、折讓等費用。「距今」算到 ${lastY} 年 12 月；${lastY + 1} 年明細還沒進來。${S.rep === '全部' ? '' : `目前看：<b>${esc(S.rep)}</b> 掛名的客戶。`}</p>
       ${itAliasPanel()}
       ${itEolPanel()}
     </section>
@@ -918,10 +919,16 @@ function itLifeOv(V){
       ${card('各狀態的年均金額', cvH('cLfSt', 260), '「疑似跑掉」＋「逾期未回單」就是可能流失的業績規模；點長條或上面的數字卡，可以看該狀態有哪些品項')}
       ${card('回單週期分布', cvH('cLfCy', 260), `有回單過的 ${rep.length} 個客戶×規格，平均多久回一次單`)}
     </div>
+    ${card('歷年業績變化原因（每一年和前一年比，所有年度一起看）', cvH('cLfTr', 320) + legendHtml([['不再買的規格', css('--bad')], ['新買／回購的規格', css('--good')], ['同規格數量增減', css('--accent')], ['同規格單價變化', css('--s5')]]), '看每一年業績變少，是「客戶不再買某些規格」，還是「同樣的東西買少了」或「單價變了」；滑過長條看金額')}
     ${card('第一次下單後，有沒有再回單？', cvH('cLfFr', 300) + legendHtml([['之後有回單', css('--good')], ['只買過一次', css('--s6')]]), `依第一次下單的年度分組（${IT.data.years[0]} 年是資料起點，看不出是不是第一次，所以不列）。越近的年度回單率自然越低，因為還沒到回單時間。`)}
     ${card('最需要追的品項 TOP 15', `<div class="tw"><table class="sticky1"><thead><tr><th class="l">確認</th><th class="l">客戶</th><th class="l">規格</th><th>回單次數</th><th>平均週期</th><th class="l">最後下單</th><th>距今</th><th>年均金額</th><th class="l">狀態</th><th class="l">客戶近況</th></tr></thead><tbody>${risk.slice(0, 15).map(o => `<tr class="go" data-id="${esc(o.c)}" style="cursor:pointer"><td class="l">${itConfCell(o)}</td><td class="l"><b style="font-weight:600">${esc(o.name)}</b></td><td class="l">${esc(o.base)}</td><td>${o.n}</td><td>${cycTxt(o)}</td><td class="l">${fmtM(o.last)}</td><td>${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l">${lifePill(o.st)}</td><td class="l">${ctxCell(o)}</td></tr>`).join('')}</tbody></table></div>`, '依年均金額排序；點客戶看時間軸')}`;
   mk('cLfSt', 'bar', {labels:LIFE_ST, datasets:[barDs('', LIFE_ST.map(s => isum(by(s), o => s === '只買一次' ? o.tot : o.annual)), LIFE_ST.map(lifeColor), {maxBarThickness:28})]}, baseOpts({horizontal:true, onClick:(e, els) => { if (els.length){ IT.stf = LIFE_ST[els[0].index]; IT.view = 'risk'; render(); window.scrollTo(0, 0); } }, tipExtra:{label: c => ` ${LIFE_ST[c.dataIndex] === '只買一次' ? '累計' : '年均'} ${bigS(c.parsed.x)}（${by(LIFE_ST[c.dataIndex]).length} 個）`}}));
   mk('cLfCy', 'bar', {labels:bk.map(b => b[0]), datasets:[barDs('', bkN, css('--accent'), {maxBarThickness:46})]}, baseOpts({count:true, unit:' 個'}));
+  const pairs = IT.data.years.slice(1).map(y => itModel(y - 1, y, S.rep));
+  mk('cLfTr', 'bar', {labels:pairs.map(p => p.y0 + '→' + p.y1), datasets:[
+    barDs('不再買的規格', pairs.map(p => p.stop), css('--bad'), {stack:'s'}), barDs('新買／回購的規格', pairs.map(p => p.nw), css('--good'), {stack:'s'}),
+    barDs('同規格數量增減', pairs.map(p => p.vol), css('--accent'), {stack:'s'}), barDs('同規格單價變化', pairs.map(p => p.price), css('--s5'), {stack:'s'})]},
+    baseOpts({stacked:true, tipExtra:{label: c => ` ${c.dataset.label}：${sgn(c.parsed.y)}`, footer: its => { const p = pairs[its[0].dataIndex]; return `業績 ${bigS(p.T0)} → ${bigS(p.T1)}（${sgn(p.T1 - p.T0)}）`; }}}));
   mk('cLfFr', 'bar', {labels:fr.map(f => f.y + ' 年'), datasets:[barDs('之後有回單', fr.map(f => f.re), css('--good'), {stack:'s'}), barDs('只買過一次', fr.map(f => f.n - f.re), css('--s6'), {stack:'s'})]},
     baseOpts({stacked:true, count:true, unit:' 個', tipExtra:{footer: its => { const f = fr[its[0].dataIndex]; return `回單率 ${f.n ? pct(f.re / f.n) : '–'}（${f.re}/${f.n}）`; }}}));
   document.querySelectorAll('#itView tr.go').forEach(t => t.onclick = e => { if (itConfClick(e, V)) return; itGo(t.dataset.id); });
@@ -1039,6 +1046,62 @@ function itCust2(V){
   itCustDetail(cm.get(IT.sel), V);
   setTimeout(() => { const s = document.querySelector('.citem[aria-pressed=true]'); if (s) s.scrollIntoView({block:'nearest'}); }, 50);
 }
+/* 客戶業績變化原因：用所有年度看，從高峰年到最近一年，哪些規格停了、哪些變少、哪些是新的 */
+function itWhyData(c, V){
+  const P = itPrep(), ys = IT.data.years, idx = new Map(ys.map((y, i) => [y, i]));
+  const sp = new Map(), tot = ys.map(() => 0);
+  for (const r of P.rows){
+    if (r.c !== c.id) continue; const K = P.keys[r.k], i = idx.get(r.y); if (i == null || K.kind === 'F' || K.kind === 'A') continue; // 版費、模具費、折讓等不計算
+    const b = r.b;
+    let o = sp.get(b); if (!o){ o = {b, a:ys.map(() => 0), q:ys.map(() => 0)}; sp.set(b, o); }
+    o.a[i] += r.a; o.q[i] += r.q; tot[i] += r.a;
+  }
+  const last = ys.length - 1; let pk = 0; tot.forEach((v, i) => { if (v > tot[pk]) pk = i; });
+  return {ys, sp:[...sp.values()], tot, pk, last};
+}
+function itWhyHtml(c, V){
+  const W = itWhyData(c, V), {ys, tot, pk, last} = W;
+  const lo = V.L.filter(o => o.c === c.id), st = new Map(lo.map(o => [o.base, o]));
+  let txt;
+  if (pk === last || tot[pk] <= 0){
+    txt = `<p style="margin:0">${ys[last]} 年是這位客戶的最高峰（${bigS(tot[last])}），目前沒有衰退。</p>`;
+  } else {
+    const d = W.sp.map(o => ({...o, d:o.a[last] - o.a[pk]})).filter(o => Math.abs(o.d) >= 1);
+    const down = d.filter(o => o.d < 0).sort((a, b) => a.d - b.d).slice(0, 6), up = d.filter(o => o.d > 0).sort((a, b) => b.d - a.d).slice(0, 3);
+    const why = o => {
+      const L = st.get(o.b), qa = o.q[pk], qb = o.q[last];
+      if (o.b === '費用與折讓') return '版費、模具費、折讓等變化';
+      if (o.a[last] <= 0.5){
+        const lastY = ys.filter((y, i) => o.a[i] > 0).pop();
+        return `${L ? fmtM(L.lastShip) : lastY + ' 年'} 之後沒再下單${L ? '（' + L.st + (L.conf ? '・已確定跑掉' : '') + (L.custGone ? '・客戶整個沒再下單' : '・客戶還在買別的') + '）' : ''}`;
+      }
+      if (qa > 0 && qb > 0){ const pa = o.a[pk] / qa, pb = o.a[last] / qb, dq = qb / qa - 1, dp = pb / pa - 1;
+        return Math.abs(dq) >= Math.abs(dp) ? `數量減少 ${pct(Math.abs(dq))}（${nf0.format(qa)} → ${nf0.format(qb)}）${Math.abs(dp) >= .05 ? `，單價 ${dp < 0 ? '降' : '漲'} ${pct(Math.abs(dp))}` : ''}`
+          : `單價${dp < 0 ? '下降' : '上升'} ${pct(Math.abs(dp))}（${nf2.format(pa)} → ${nf2.format(pb)}）${Math.abs(dq) >= .05 ? `，數量${dq < 0 ? '減少' : '增加'} ${pct(Math.abs(dq))}` : ''}`; }
+      return '買得比較少';
+    };
+    const upWhy = o => o.a[pk] <= 0.5 ? (ys.find((y, i) => o.a[i] > 0) > ys[pk] ? `${ys.find((y, i) => o.a[i] > 0)} 年開始買的新規格` : '回購') : '買得比較多';
+    const dropT = tot[last] - tot[pk];
+    txt = `<p style="margin:0">品項金額（不含版費、模具費、折讓）從 <b>${ys[pk]} 年高峰 ${bigS(tot[pk])}</b> 到 <b>${ys[last]} 年 ${bigS(tot[last])}</b>，<span class="${dropT < 0 ? 'down' : 'up'}">${sgn(dropT)}</span>。主要原因：</p>
+      <div class="tw"><table><thead><tr><th class="l">規格</th><th>${ys[pk]} 年</th><th>${ys[last]} 年</th><th>變化</th><th class="l">原因</th></tr></thead><tbody>${down.map(o => `<tr><td class="l"><b style="font-weight:600">${esc(o.b)}</b></td><td>${inum(o.a[pk])}</td><td>${inum(o.a[last])}</td><td class="down">${sgn(o.d)}</td><td class="l" style="white-space:normal;min-width:240px">${esc(why(o))}</td></tr>`).join('')}${up.map(o => `<tr><td class="l"><b style="font-weight:600">${esc(o.b)}</b></td><td>${inum(o.a[pk])}</td><td>${inum(o.a[last])}</td><td class="up">${sgn(o.d)}</td><td class="l">${esc(upWhy(o))}</td></tr>`).join('')}</tbody></table></div>`;
+    /* 高峰年之後才變大、後來又變少或停掉的規格（從高峰年直接比看不出來） */
+    const mid = W.sp.filter(o => o.b !== '費用與折讓').map(o => { let m = 0; o.a.forEach((v, i) => { if (v > o.a[m]) m = i; }); return {...o, m}; })
+      .filter(o => !down.some(x => x.b === o.b) && o.m > pk && o.m < last && o.a[last] < o.a[o.m] * 0.5 && o.a[o.m] - o.a[last] >= Math.max(1e4, tot[pk] * 0.03)).sort((x, y) => (x.a[last] - x.a[x.m]) - (y.a[last] - y.a[y.m])).slice(0, 5);
+    if (mid.length) txt += `<p style="margin:6px 0 0">另外，這些規格是高峰之後才買多、後來又變少或停掉：</p>
+      <div class="tw"><table><thead><tr><th class="l">規格</th><th>最多的一年</th><th>${ys[last]} 年</th><th>變化</th><th class="l">原因</th></tr></thead><tbody>${mid.map(o => `<tr><td class="l"><b style="font-weight:600">${esc(o.b)}</b></td><td>${ys[o.m]} 年 ${inum(o.a[o.m])}</td><td>${inum(o.a[last])}</td><td class="down">${sgn(o.a[last] - o.a[o.m])}</td><td class="l" style="white-space:normal;min-width:240px">${esc(why({...o, a:o.a.map((v, i) => i === pk ? o.a[o.m] : v), q:o.q.map((v, i) => i === pk ? o.q[o.m] : v)}))}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  return card('這位客戶的業績為什麼變化', txt + `<p class="note" style="margin:0">各規格歷年金額（前 6 大規格＋其他），看哪些規格在哪一年開始變少或消失：</p>` + cvH('cItWhy', 280) + `<div id="itWhyLg"></div>`, `用 ${ys[0]}–${ys[ys.length - 1]} 年所有資料，從業績最高的那一年比到最近一年；不是只比兩年的單年變化`);
+}
+function itWhyChart(c, V){
+  const W = itWhyData(c, V), {ys} = W;
+  const top = W.sp.filter(o => o.b !== '費用與折讓').sort((a, b) => b.a.reduce((s, v) => s + v, 0) - a.a.reduce((s, v) => s + v, 0)).slice(0, 6);
+  const rest = ys.map((y, i) => W.tot[i] - top.reduce((s, o) => s + o.a[i], 0));
+  const cols = ['--s1', '--s2', '--s3', '--s4', '--s5', '--warn'].map(css);
+  const ds = top.map((o, k) => barDs(o.b, o.a, cols[k], {stack:'w'}));
+  if (rest.some(v => Math.abs(v) >= 1)) ds.push(barDs('其他', rest, css('--s6'), {stack:'w'}));
+  mk('cItWhy', 'bar', {labels:ys.map(String), datasets:ds}, baseOpts({stacked:true, tipExtra:{footer: its => `合計 ${bigS(W.tot[its[0].dataIndex])}`}}));
+  const lg = $('#itWhyLg'); if (lg) lg.innerHTML = legendHtml([...top.map((o, k) => [o.b, cols[k]]), ...(ds.length > top.length ? [['其他', css('--s6')]] : [])]);
+}
 function itCustDetail(c, V){
   killCharts();
   const ord = ['疑似跑掉', '逾期未回單', '只買一次', '新品觀察中', '正常回單', '產品停產'];
@@ -1059,10 +1122,12 @@ function itCustDetail(c, V){
       <p class="note" style="margin:0 0 4px">歷年業績（網站資料，全部業務）</p>${cvH('cItCh', 200)}
       ${itCAliasForm(c, sp)}
     </section>
+    ${itWhyHtml(c, V)}
     ${card('各規格下單時間軸', `<div class="tw" style="max-height:720px"><table class="sticky1 tlT"><thead><tr><th class="l">規格</th><th class="l tlc">${tlAxis(V)}</th><th class="l">狀態</th><th>次數</th><th>平均週期</th><th>距今</th><th>年均金額</th><th class="l">第一次</th><th class="l">最後</th></tr></thead><tbody id="itTb">${sp.map((o, k) =>
       `<tr class="clk" data-k="${k}"><td class="l"><b style="font-weight:600">${esc(o.base)}</b> <span class="mut" style="font-size:12px">${o.its.length} 組</span></td><td class="tlc">${tlSvg(o, V, maxA)}</td><td class="l"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">${lifePill(o.st)}${itConfCell(o)}</div></td><td>${o.n}</td><td>${cycTxt(o)}</td><td>${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l">${fmtM(o.first)}${o.censored ? '<span class="mut"> 起</span>' : ''}</td><td class="l">${fmtM(o.last)}</td></tr>` +
       o.its.map(i => `<tr class="sub" data-p="${k}" hidden><td class="l" style="white-space:normal;min-width:240px"><b style="font-weight:600">${esc(i.name)}</b><br><span class="mut" style="font-size:12px">${[...i.names.values()].slice(0, 4).map(K => esc(K.disp) + (K.old ? '（舊編碼）' : '')).join('<br>') + (i.names.size > 4 ? `<br>等 ${i.names.size} 個` : '')}</span></td><td class="tlc">${tlSvg(i, V, maxA, true)}</td><td class="l">${lifePill(i.st)}</td><td>${i.n}</td><td>${cycTxt(i)}</td><td>${i.since} 個月</td><td>${inum(i.annual)}</td><td class="l">${fmtM(i.first)}</td><td class="l">${fmtM(i.last)}</td></tr>`).join('')).join('')}</tbody></table></div>`,
       '每個點是一次下單（點越大金額越大），虛線圈是照平均週期「應該回單」的時間。點規格可以展開：單品依顏色＋牙徑分組（舊編號、新編號顏色和牙徑一樣算同一組），同型號的 PR46 套組算同一組（品名寫法、中英文不同都一樣）。')}`;
+  itWhyChart(c, V);
   mk('cItCh', 'bar', {labels:ys.map(String), datasets:[barDs('', hist, css('--accent'), {maxBarThickness:34})]}, baseOpts({}));
   const cc = $('#itCustConf'); if (cc) cc.onclick = e => confirmClick(e, '#itTb'); bindCAlias();
   $('#itTb').onclick = e => { if (itConfClick(e, V)) return; const tr = e.target.closest('tr.clk'); if (!tr) return; const open = tr.classList.toggle('open'); document.querySelectorAll(`#itTb tr[data-p="${tr.dataset.k}"]`).forEach(x => x.hidden = !open); };
