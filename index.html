@@ -204,6 +204,8 @@ tr.clk.open td:first-child::before{transform:rotate(90deg)}
 .sticky1 th:first-child{z-index:2;background:#333a43}
 .itbtn{min-height:32px;padding:3px 10px;font-size:13.5px;white-space:nowrap}
 .kclick{cursor:pointer;display:grid}.kclick>.kpi{height:100%}.kclick:hover>.kpi{border-color:var(--pg)}
+.mxb{min-height:30px;min-width:44px;padding:2px 10px;font:inherit;font-weight:700;color:inherit;background:rgba(255,255,255,.04);border:1px solid var(--line-2);border-radius:8px}
+.mxb:hover{border-color:var(--pg)}.mxb.on{background:color-mix(in srgb,var(--pg) 28%,transparent);border-color:var(--pg)}
 .itbtn2{background:none;border-style:dashed;color:var(--ink-2)}
 .pEol{background:rgba(176,131,240,.15);color:#dcc4ff;border-color:rgba(176,131,240,.5)}
 .tlc{min-width:320px;width:42%;padding-top:4px!important;padding-bottom:4px!important}
@@ -919,16 +921,10 @@ function itLifeOv(V){
       ${card('各狀態的年均金額', cvH('cLfSt', 260), '「疑似跑掉」＋「逾期未回單」就是可能流失的業績規模；點長條或上面的數字卡，可以看該狀態有哪些品項')}
       ${card('回單週期分布', cvH('cLfCy', 260), `有回單過的 ${rep.length} 個客戶×規格，平均多久回一次單`)}
     </div>
-    ${card('歷年業績變化原因（每一年和前一年比，所有年度一起看）', cvH('cLfTr', 320) + legendHtml([['不再買的規格', css('--bad')], ['新買／回購的規格', css('--good')], ['同規格數量增減', css('--accent')], ['同規格單價變化', css('--s5')]]), '看每一年業績變少，是「客戶不再買某些規格」，還是「同樣的東西買少了」或「單價變了」；滑過長條看金額')}
     ${card('第一次下單後，有沒有再回單？', cvH('cLfFr', 300) + legendHtml([['之後有回單', css('--good')], ['只買過一次', css('--s6')]]), `依第一次下單的年度分組（${IT.data.years[0]} 年是資料起點，看不出是不是第一次，所以不列）。越近的年度回單率自然越低，因為還沒到回單時間。`)}
     ${card('最需要追的品項 TOP 15', `<div class="tw"><table class="sticky1"><thead><tr><th class="l">確認</th><th class="l">客戶</th><th class="l">規格</th><th>回單次數</th><th>平均週期</th><th class="l">最後下單</th><th>距今</th><th>年均金額</th><th class="l">狀態</th><th class="l">客戶近況</th></tr></thead><tbody>${risk.slice(0, 15).map(o => `<tr class="go" data-id="${esc(o.c)}" style="cursor:pointer"><td class="l">${itConfCell(o)}</td><td class="l"><b style="font-weight:600">${esc(o.name)}</b></td><td class="l">${esc(o.base)}</td><td>${o.n}</td><td>${cycTxt(o)}</td><td class="l">${fmtM(o.last)}</td><td>${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l">${lifePill(o.st)}</td><td class="l">${ctxCell(o)}</td></tr>`).join('')}</tbody></table></div>`, '依年均金額排序；點客戶看時間軸')}`;
   mk('cLfSt', 'bar', {labels:LIFE_ST, datasets:[barDs('', LIFE_ST.map(s => isum(by(s), o => s === '只買一次' ? o.tot : o.annual)), LIFE_ST.map(lifeColor), {maxBarThickness:28})]}, baseOpts({horizontal:true, onClick:(e, els) => { if (els.length){ IT.stf = LIFE_ST[els[0].index]; IT.view = 'risk'; render(); window.scrollTo(0, 0); } }, tipExtra:{label: c => ` ${LIFE_ST[c.dataIndex] === '只買一次' ? '累計' : '年均'} ${bigS(c.parsed.x)}（${by(LIFE_ST[c.dataIndex]).length} 個）`}}));
   mk('cLfCy', 'bar', {labels:bk.map(b => b[0]), datasets:[barDs('', bkN, css('--accent'), {maxBarThickness:46})]}, baseOpts({count:true, unit:' 個'}));
-  const pairs = IT.data.years.slice(1).map(y => itModel(y - 1, y, S.rep));
-  mk('cLfTr', 'bar', {labels:pairs.map(p => p.y0 + '→' + p.y1), datasets:[
-    barDs('不再買的規格', pairs.map(p => p.stop), css('--bad'), {stack:'s'}), barDs('新買／回購的規格', pairs.map(p => p.nw), css('--good'), {stack:'s'}),
-    barDs('同規格數量增減', pairs.map(p => p.vol), css('--accent'), {stack:'s'}), barDs('同規格單價變化', pairs.map(p => p.price), css('--s5'), {stack:'s'})]},
-    baseOpts({stacked:true, tipExtra:{label: c => ` ${c.dataset.label}：${sgn(c.parsed.y)}`, footer: its => { const p = pairs[its[0].dataIndex]; return `業績 ${bigS(p.T0)} → ${bigS(p.T1)}（${sgn(p.T1 - p.T0)}）`; }}}));
   mk('cLfFr', 'bar', {labels:fr.map(f => f.y + ' 年'), datasets:[barDs('之後有回單', fr.map(f => f.re), css('--good'), {stack:'s'}), barDs('只買過一次', fr.map(f => f.n - f.re), css('--s6'), {stack:'s'})]},
     baseOpts({stacked:true, count:true, unit:' 個', tipExtra:{footer: its => { const f = fr[its[0].dataIndex]; return `回單率 ${f.n ? pct(f.re / f.n) : '–'}（${f.re}/${f.n}）`; }}}));
   document.querySelectorAll('#itView tr.go').forEach(t => t.onclick = e => { if (itConfClick(e, V)) return; itGo(t.dataset.id); });
@@ -1331,11 +1327,26 @@ function vAbc(){
   const prevT = c => c.amt[Y-1] != null ? tierOf(c.amt[Y-1]) : '前年未交易';
   const curT = c => c.amt[Y] != null ? tierOf(c.amt[Y]) : '今年未下單';
   const rowsK = ['A', 'B', 'C', '前年未交易'], colsK = ['A', 'B', 'C', '今年未下單'];
-  const M = {}; rowsK.forEach(r => colsK.forEach(c => M[r + c] = 0));
-  cust.filter(c => c.amt[Y-1] != null || c.amt[Y] != null).forEach(c => M[prevT(c) + curT(c)]++);
-  const matrix = `<div class="tw"><table><thead><tr><th class="l">${Y-1} 年 ＼ ${Y} 年</th>${colsK.map(c => `<th>${c.length === 1 ? c + ' 級' : c}</th>`).join('')}</tr></thead><tbody>
-    ${rowsK.map(r => `<tr><td class="l">${r.length === 1 ? tierPill(r) + ' 級' : r}</td>${colsK.map(c => { const v = M[r + c]; const up = 'ABC'.indexOf(c) >= 0 && 'ABC'.indexOf(r) >= 0 && 'ABC'.indexOf(c) < 'ABC'.indexOf(r); const dn = ('ABC'.indexOf(c) > 'ABC'.indexOf(r) && 'ABC'.indexOf(r) >= 0) || (c === '今年未下單'); return `<td class="${v ? (up ? 'up' : dn ? 'down' : '') : 'mut'}">${v}</td>`; }).join('')}</tr>`).join('')}
-  </tbody></table></div>`;
+  const M = {}, MC = {}; rowsK.forEach(r => colsK.forEach(c => { M[r + c] = 0; MC[r + c] = []; }));
+  cust.filter(c => c.amt[Y-1] != null || c.amt[Y] != null).forEach(c => { const k = prevT(c) + curT(c); M[k]++; MC[k].push(c); });
+  const ti = t => 'ABC'.indexOf(t);
+  const kindOf = (r, c) => c === '今年未下單' ? '今年沒下單' : r === '前年未交易' ? '新進／回流' : ti(c) < ti(r) ? '升級' : ti(c) > ti(r) ? '降級' : '持平';
+  const cats = {'升級':[], '降級':[], '持平':[], '今年沒下單':[], '新進／回流':[]};
+  rowsK.forEach(r => colsK.forEach(c => { if (!(r === '前年未交易' && c === '今年未下單')) cats[kindOf(r, c)].push(...MC[r + c]); }));
+  const catCls = {'升級':'up', '降級':'down', '持平':'', '今年沒下單':'down', '新進／回流':'up'};
+  const sel = S.abcMx || {k:'降級'};
+  const selList = sel.r ? MC[sel.r + sel.c] : (cats[sel.k] || []);
+  const selTitle = sel.r ? `${sel.r.length === 1 ? sel.r + ' 級' : sel.r} → ${sel.c.length === 1 ? sel.c + ' 級' : sel.c}` : sel.k;
+  const cell = (r, c) => { const v = M[r + c], k = kindOf(r, c), on = sel.r === r && sel.c === c; const cls = v ? (k === '升級' || k === '新進／回流' ? 'up' : k === '降級' || k === '今年沒下單' ? 'down' : '') : 'mut';
+    return `<td class="${cls}">${v && !(r === '前年未交易' && c === '今年未下單') ? `<button type="button" class="mxb${on ? ' on' : ''}" data-mr="${r}" data-mc="${c}" title="看這 ${v} 位客戶">${v}</button>` : v}</td>`; };
+  const matrix = `<div class="chips" id="abcCat" style="margin-bottom:8px">${Object.entries(cats).map(([k, l]) => `<button class="chip" type="button" data-k="${k}" aria-pressed="${!sel.r && sel.k === k}"><span class="${catCls[k]}">${k}</span> ${l.length} 位</button>`).join('')}</div>
+    <div class="tw"><table><thead><tr><th class="l">${Y-1} 年 ＼ ${Y} 年</th>${colsK.map(c => `<th>${c.length === 1 ? c + ' 級' : c}</th>`).join('')}</tr></thead><tbody>
+    ${rowsK.map(r => `<tr><td class="l">${r.length === 1 ? tierPill(r) + ' 級' : r}</td>${colsK.map(c => cell(r, c)).join('')}</tr>`).join('')}
+    </tbody></table></div>
+    <p class="note" style="margin:6px 0 0">點上面的分類或表格裡的數字，下面會列出是哪些客戶。</p>
+    <h3 style="margin:10px 0 6px;font-size:16px">${esc(selTitle)}：${selList.length} 位</h3>
+    <div class="tw" style="max-height:460px"><table class="sticky1"><thead><tr><th class="l">客戶</th><th class="l">掛名業務</th><th class="l">${Y-1} 層級</th><th>${Y-1} 金額</th><th class="l">${Y} 層級</th><th>${Y} 金額</th><th>變化</th></tr></thead><tbody>${selList.slice().sort((a, b) => Math.abs((b.amt[Y] || 0) - (b.amt[Y-1] || 0)) - Math.abs((a.amt[Y] || 0) - (a.amt[Y-1] || 0))).map(c => { const p0 = c.amt[Y-1], p1 = c.amt[Y], d = (p1 || 0) - (p0 || 0);
+      return `<tr><td class="l"><b style="font-weight:600">${esc(c.name)}</b> <span class="mut" style="font:500 12.5px var(--f-mono)">${esc(c.id)}</span></td><td class="l">${esc(c.rep || '(未填)')}</td><td class="l">${p0 != null ? tierPill(tierOf(p0)) : '<span class="mut">未交易</span>'}</td><td>${p0 != null ? wan(p0) : '<span class="mut">—</span>'}</td><td class="l">${p1 != null ? tierPill(tierOf(p1)) : '<span class="mut">沒下單</span>'}</td><td>${p1 != null ? wan(p1) : '<span class="mut">—</span>'}</td><td class="${d < 0 ? 'down' : d > 0 ? 'up' : 'mut'}">${d ? (d > 0 ? '+' : '−') + wan(Math.abs(d)) : '—'}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">沒有客戶</td></tr>'}</tbody></table></div>`;
   const list = rows.filter(r => r.y === Y && r.lvl === S.abcTier).sort((a, b) => b.h - a.h);
   const listTbl = `<div class="tw" style="max-height:460px"><table><thead><tr><th class="l">客戶</th><th class="l">編號</th><th class="l">業務</th><th>${Y} 金額</th><th>${Y-1} 金額</th><th>成長</th><th class="l">前年層級</th></tr></thead><tbody>
     ${list.map(r => { const p = S.A.cust.get(r.id).amt[Y-1]; return `<tr><td class="l">${esc(r.n)}</td><td class="l mut">${esc(r.id)}</td><td class="l">${esc(r.r)}</td><td>${wan(r.h)}</td><td>${p != null ? wan(p) : '<span class="mut">—</span>'}</td><td>${delta(r.h, p)}</td><td class="l">${tierPill(r.prev)}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">沒有符合的客戶</td></tr>'}
@@ -1347,14 +1358,17 @@ function vAbc(){
       ${card('各年客戶數（依層級）', lg + canvas('cAbcCnt'))}
       ${card('各年營業額占比（依層級）', lg + canvas('cAbcShare'), '少數 A 級客戶通常撐起大部分營業額')}
     </div>
-    <div class="grid3">
+    ${card(`層級變化：${Y-1} → ${Y}`, matrix, '綠色為升級或新進、紅色為降級或今年沒下單；點數字看是哪些客戶')}
+    <div>
       <section class="card"><div class="flex"><h2>${Y} 年客戶清單</h2><div class="chips" id="abcChips">${['A', 'B', 'C'].map(t => `<button class="chip" type="button" data-t="${t}" aria-pressed="${S.abcTier === t}">${t} 級 ${rows.filter(r => r.y === Y && r.lvl === t).length}</button>`).join('')}</div></div>${listTbl}</section>
-      ${card(`層級變化：${Y-1} → ${Y}`, matrix, '綠色為升級、紅色為降級或今年沒下單（客戶數）')}
     </div>`;
   const stackDs = (t, data) => barDs(t + ' 級', data, css('--t' + t), {borderWidth:{top:2,bottom:0,left:0,right:0}, borderSkipped:false});
   mk('cAbcCnt', 'bar', {labels:years, datasets:['C', 'B', 'A'].map(t => stackDs(t, cnt(t)))}, baseOpts({stacked:true, count:true, unit:' 位'}));
   mk('cAbcShare', 'bar', {labels:years, datasets:['C', 'B', 'A'].map(t => stackDs(t, share(t)))}, baseOpts({stacked:true, pct:true}));
   $('#abcChips').onclick = e => { const b = e.target.closest('[data-t]'); if (b){ S.abcTier = b.dataset.t; render(); } };
+  const keep = () => { const wy = window.scrollY; render(); window.scrollTo(0, wy); };
+  $('#abcCat').onclick = e => { const b = e.target.closest('[data-k]'); if (b){ S.abcMx = {k:b.dataset.k}; keep(); } };
+  document.querySelectorAll('.mxb').forEach(b => b.onclick = () => { S.abcMx = {r:b.dataset.mr, c:b.dataset.mc}; keep(); });
 }
 
 function vLost(){
