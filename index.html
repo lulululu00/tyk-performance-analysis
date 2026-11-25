@@ -624,7 +624,7 @@ function baseOpts(o = {}){
     indexAxis: o.horizontal ? 'y' : 'x',
     interaction:{mode: o.line ? 'index' : 'nearest', intersect: !o.line, axis: o.horizontal ? 'y' : 'x'},
     plugins:{
-      vlabels:{fmt: o.pct ? (v => pct(v, 0)) : o.count ? (v => nf0.format(v)) : axisW, off:!!o.noLabels},
+      vlabels:{kind: o.pct ? 'pct' : o.count ? 'count' : 'money', off:!!o.noLabels},
       legend:{display:false},
       tooltip:{backgroundColor:'rgba(28,33,40,.97)', borderColor:'#545d68', borderWidth:1, titleColor:'#f0f6fc', bodyColor:'#c5d1de', titleFont:{family:css('--f-sans'), weight:'700', size:14}, bodyFont:{family:css('--f-mono'), size:13.5}, footerFont:{size:13}, padding:12, boxPadding:5, cornerRadius:10, usePointStyle:true, caretSize:0,
         callbacks:{label: ctx => ` ${ctx.dataset.label ? ctx.dataset.label + '：' : ''}${tipFmt(ctx.parsed[o.horizontal ? 'x' : 'y'])}`, ...(o.tipExtra || {})}}
@@ -1942,16 +1942,18 @@ new MutationObserver(reTheme).observe(document.documentElement, {attributes:true
 if (window.Chart){
   Chart.defaults.font.family = css('--f-sans'); Chart.defaults.font.size = 13.5; Chart.defaults.color = css('--ink-2');
   /* 長條圖直接標數字（長輩不用按住才看得到） */
-  Chart.register({id:'vlabels', afterDatasetsDraw(ch){
+  /* 注意：Chart.js 會把選項裡的函式當成「可依情境計算」的選項執行，所以這裡只傳字串，不傳函式；整段包 try，畫標籤出錯也不影響長條 */
+  const VFMT = {pct:v => pct(v, 0), count:v => nf0.format(v), money:axisW};
+  Chart.register({id:'vlabels', afterDatasetsDraw(ch){ try{
     if (ch.config.type !== 'bar') return; const o = ch.options.plugins && ch.options.plugins.vlabels; if (!o || o.off) return;
     const sc = ch.options.scales || {}; if ((sc.x && sc.x.stacked) || (sc.y && sc.y.stacked)) return;
     const ds = ch.data.datasets.filter((d, i) => ch.isDatasetVisible(i)); if (ds.length !== 1) return;
     const meta = ch.getDatasetMeta(ch.data.datasets.indexOf(ds[0])); if (meta.data.length > 16) return;
     const c = ch.ctx, hz = ch.options.indexAxis === 'y'; c.save(); c.font = '600 12.5px ' + css('--f-mono'); c.fillStyle = css('--ink-2');
-    meta.data.forEach((el, i) => { const v = ds[0].data[i]; if (v == null || Array.isArray(v) || !v) return; const t = o.fmt(v);
+    meta.data.forEach((el, i) => { const v = ds[0].data[i]; if (v == null || Array.isArray(v) || !v) return; const t = (VFMT[o.kind] || axisW)(v);
       if (hz){ c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(t, Math.min(el.x + 6, ch.chartArea.right - c.measureText(t).width), el.y); }
       else { c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillText(t, el.x, Math.max(el.y - 4, ch.chartArea.top + 12)); } });
-    c.restore(); }});
+    c.restore(); }catch(e){ try{ ch.ctx.restore(); }catch(_){} } }});
   Chart.register({id:'glow',
     beforeDatasetDraw(ch, args){ if (ch.config.type !== 'line') return; const c = ch.ctx; c.save(); c.shadowColor = args.meta.dataset && args.meta.dataset.options ? args.meta.dataset.options.borderColor : 'rgba(56,189,248,.6)'; c.shadowBlur = 6; },
     afterDatasetDraw(ch){ if (ch.config.type !== 'line') return; ch.ctx.restore(); }});
