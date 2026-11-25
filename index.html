@@ -438,7 +438,7 @@ function analyze(rows){
 </script>
 <script id="app">
 const S = { rows: [], view: [], merge: {}, lost: {}, itLost: {}, itAlias: {}, itEol: {}, itCAlias: {}, lostSt: '全部', custSt: '全部', updated: '', source: 'none', baseUpdated: '', A: null, tab: 'overview', year: null, rep: '全部', q: '', abcTier: 'A', lostTier: '全部', lostQ: '', pending: null, delYear: null };
-const TABS = [['overview','總覽'],['custgrp','客戶'],['item','品項分析'],['rep','業務分析'],['data','資料管理']];
+const TABS = [['overview','總覽'],['rep','業務分析'],['custgrp','客戶'],['item','品項分析'],['data','資料管理']];
 const CUST_SUB = [['cust','客戶查詢'],['abc','ABC 客戶'],['lost','疑似跑單'],['new','新客人']];
 const topOf = t => CUST_SUB.some(x => x[0] === t) ? 'custgrp' : t;
 let charts = [];
@@ -1943,16 +1943,28 @@ if (window.Chart){
   Chart.defaults.font.family = css('--f-sans'); Chart.defaults.font.size = 13.5; Chart.defaults.color = css('--ink-2');
   /* 長條圖直接標數字（長輩不用按住才看得到） */
   /* 注意：Chart.js 會把選項裡的函式當成「可依情境計算」的選項執行，所以這裡只傳字串，不傳函式；整段包 try，畫標籤出錯也不影響長條 */
-  const VFMT = {pct:v => pct(v, 0), count:v => nf0.format(v), money:axisW};
+  /* 長條上的數字：億顯示到小數第二位；字會依長條寬度自動縮小，太窄（手機）就改成直的，避免擠在一起 */
+  const moneyLbl = v => { const a = Math.abs(v); return a >= 1e8 ? (v/1e8).toFixed(2) + '億' : a >= 1e4 ? nf0.format(Math.round(v/1e4)) + '萬' : nf0.format(Math.round(v)) + '元'; };
+  const VFMT = {pct:v => pct(v, 0), count:v => nf0.format(v), money:moneyLbl};
   Chart.register({id:'vlabels', afterDatasetsDraw(ch){ try{
     if (ch.config.type !== 'bar') return; const o = ch.options.plugins && ch.options.plugins.vlabels; if (!o || o.off) return;
     const sc = ch.options.scales || {}; if ((sc.x && sc.x.stacked) || (sc.y && sc.y.stacked)) return;
     const ds = ch.data.datasets.filter((d, i) => ch.isDatasetVisible(i)); if (ds.length !== 1) return;
-    const meta = ch.getDatasetMeta(ch.data.datasets.indexOf(ds[0])); if (meta.data.length > 16) return;
-    const c = ch.ctx, hz = ch.options.indexAxis === 'y'; c.save(); c.font = '600 12.5px ' + css('--f-mono'); c.fillStyle = css('--ink-2');
-    meta.data.forEach((el, i) => { const v = ds[0].data[i]; if (v == null || Array.isArray(v) || !v) return; const t = (VFMT[o.kind] || axisW)(v);
-      if (hz){ c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(t, Math.min(el.x + 6, ch.chartArea.right - c.measureText(t).width), el.y); }
-      else { c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillText(t, el.x, Math.max(el.y - 4, ch.chartArea.top + 12)); } });
+    const meta = ch.getDatasetMeta(ch.data.datasets.indexOf(ds[0])); const n = meta.data.length; if (n > 16) return;
+    const c = ch.ctx, hz = ch.options.indexAxis === 'y', fam = css('--f-mono'), fmt = VFMT[o.kind] || moneyLbl;
+    const texts = meta.data.map((el, i) => { const v = ds[0].data[i]; return v == null || Array.isArray(v) || !v ? '' : fmt(v); });
+    c.save(); c.fillStyle = css('--ink-2');
+    if (hz){ c.font = '600 12px ' + fam; c.textAlign = 'left'; c.textBaseline = 'middle';
+      meta.data.forEach((el, i) => { const t = texts[i]; if (t) c.fillText(t, Math.min(el.x + 6, ch.chartArea.right - c.measureText(t).width), el.y); });
+    } else {
+      const gap = n > 1 ? Math.abs(meta.data[1].x - meta.data[0].x) : ch.chartArea.right - ch.chartArea.left;
+      let fs = 12, maxW = 0; const widest = () => { c.font = `600 ${fs}px ${fam}`; maxW = Math.max(...texts.map(t => c.measureText(t).width)); };
+      widest(); while (maxW > gap - 4 && fs > 9){ fs--; widest(); }
+      const vertical = maxW > gap - 4;
+      meta.data.forEach((el, i) => { const t = texts[i]; if (!t) return;
+        if (vertical){ c.save(); c.translate(el.x, Math.max(el.y - 4, ch.chartArea.top + c.measureText(t).width)); c.rotate(-Math.PI / 2); c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(t, 0, 0); c.restore(); }
+        else { c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillText(t, el.x, Math.max(el.y - 4, ch.chartArea.top + fs)); } });
+    }
     c.restore(); }catch(e){ try{ ch.ctx.restore(); }catch(_){} } }});
   Chart.register({id:'glow',
     beforeDatasetDraw(ch, args){ if (ch.config.type !== 'line') return; const c = ch.ctx; c.save(); c.shadowColor = args.meta.dataset && args.meta.dataset.options ? args.meta.dataset.options.borderColor : 'rgba(56,189,248,.6)'; c.shadowBlur = 6; },
