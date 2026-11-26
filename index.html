@@ -352,6 +352,27 @@ details.rulebox .rule{border:0;padding:8px 0 0;background:none;margin:0}
 :root[data-theme=light] .eyebrow{color:#7d6640;border-color:rgba(176,149,106,.5);background:rgba(176,149,106,.1)}
 :root[data-theme=light] .eyebrow i{background:#b0956a;box-shadow:0 0 0 3px rgba(176,149,106,.25)}
 :root[data-theme=light] .card h2::before{background:var(--pg,#b0956a)}
+
+/* ---- 庫存模組 ---- */
+#main[data-tab=inv]{--pg:#b0956a}
+.ivbar{display:flex;gap:8px;flex-wrap:wrap}.ivbar input{flex:1 1 220px;min-width:0;width:auto;font-size:17px;min-height:50px}
+.ivsel{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.cchip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 12px 6px 8px;min-height:40px;font-size:15px}
+.cchip[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}.cchip.zero{opacity:.4}.cchip small{color:var(--ink-3)}
+.sw{width:16px;height:16px;border-radius:50%;border:1px solid var(--line-2);flex:none;display:inline-block;vertical-align:-2px;margin-right:6px}
+.sw.clear{background:repeating-conic-gradient(var(--line) 0 25%,var(--panel) 0 50%) 0 0/8px 8px}.sw.none{background:transparent;border-style:dashed}
+.ivgrp{background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:0}
+.ivhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:14px 16px;cursor:pointer;align-items:start}
+.ivhead:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.ivname{font-weight:700;font-size:18px;min-width:0}.ivname .part{color:var(--s1)}.ivname .neck{color:var(--warn);white-space:nowrap}.ivname .cl{display:block;font-weight:500;font-size:15px;color:var(--ink-3)}
+.ivqty{text-align:right;font:700 20px var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}.ivqty small{display:block;font:400 13px var(--f-sans);color:var(--ink-3)}
+.ivmeta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;font-size:15px;color:var(--ink-3);align-items:center}
+.ivmeta .caret{margin-left:auto;color:var(--accent);font-weight:600}
+.tag{background:var(--panel-2);border-radius:6px;padding:2px 8px;color:var(--ink-2);font-size:14px}.tag.zone{background:var(--accent-soft);color:var(--accent);font-weight:600}.tag.def{box-shadow:inset 0 0 0 1px var(--line-2)}.tag.neg{background:var(--bad-bg);color:var(--bad);font-weight:700}
+.ivlines{border-top:1px solid var(--line)}.ivline{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 16px;border-bottom:1px solid var(--grid)}
+.ivline .po{font:500 15px var(--f-mono)}.ivline .lq{text-align:right;font:600 16px var(--f-mono)}.ivline .lmeta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}.ivline .lspec{grid-column:1/-1;font-size:14.5px;color:var(--ink-2)}
+.ivbuy{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:12px 16px;font-size:15px}
+.ivc{min-height:38px;padding:4px 12px;border-radius:999px;font-size:15px;color:var(--accent)}.ivc small{color:var(--ink-3)}
 </style>
 </head>
 <body>
@@ -374,7 +395,7 @@ details.rulebox .rule{border:0;padding:8px 0 0;background:none;margin:0}
         <input type="file" id="fileIn" accept=".xlsx,.xls,.csv" hidden>
       </div>
     </div>
-    <div class="mods" aria-label="報表"><button class="mod" type="button" aria-current="true">業績分析</button><button class="mod" type="button" disabled title="準備中">訂單<small>準備中</small></button><button class="mod" type="button" disabled title="準備中">採購<small>準備中</small></button><button class="mod" type="button" disabled title="準備中">庫存<small>準備中</small></button></div>
+    <div class="mods" id="mods" aria-label="報表"><button class="mod" type="button" data-mod="sales" aria-current="true">業績分析</button><button class="mod" type="button" data-mod="inv" aria-current="false">庫存</button><button class="mod" type="button" disabled title="準備中">訂單<small>準備中</small></button><button class="mod" type="button" disabled title="準備中">採購<small>準備中</small></button></div>
     <nav class="tabs" role="tablist" id="tabs"></nav>
   </div>
 </header>
@@ -514,7 +535,7 @@ async function load(){
     try{ const t = localStorage.getItem('sales.enc'); if (t) encLocal = JSON.parse(t); }catch(e){}
     try{ localStorage.removeItem('sales.data'); }catch(e){} // 舊版未加密的本機資料一律清掉
   }
-  S.encMode = !IN_CLAUDE;
+  S.encMode = true;
   if (encBase || encLocal){ S.lockInfo = {encBase, encLocal}; S.baseUpdated = encBase ? encBase.updated : ''; showLock(); return; }
   S.baseUpdated = base ? base.updated : '';
   finishLoad(base, base ? 'file' : 'none');
@@ -531,7 +552,9 @@ function showLock(err){
     <p class="note" id="pwMsg">${err ? `<span class="down">${esc(err)}</span>` : '資料以密碼加密存放，沒有密碼的人只會看到亂碼。'}</p></section>`;
   const pw = $('#pw'); pw.focus();
   $('#lockForm').onsubmit = async e => {
-    e.preventDefault(); $('#pwBtn').disabled = true; $('#pwMsg').textContent = '解鎖中…';
+    e.preventDefault();
+    if (!window.crypto || !crypto.subtle){ showLock('這個網址是 http 開頭，瀏覽器不允許在這裡解密。請改用 https 網址開啟，或請管理者改放不需要密碼的內網版。'); return; }
+    $('#pwBtn').disabled = true; $('#pwMsg').textContent = '解鎖中…';
     const {encBase, encLocal} = S.lockInfo;
     const useLocal = encLocal && (!encBase || newer(encLocal, encBase));
     try{
@@ -704,7 +727,7 @@ function itAliasPanel(){
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
       <div class="chips">${A.length ? A.map(([a, b]) => `<span class="pill pMuted" style="font-size:14px">${esc(a)} → ${esc(b)} <button type="button" data-alrm="${esc(a)}" style="min-height:24px;padding:0 8px;margin-left:4px" title="取消合併">×</button></span>`).join('') : '<span class="mut">還沒有設定</span>'}</div>
       <div class="chips"><input id="itAlA" placeholder="原型號，例如 UTS60" autocomplete="off" style="max-width:200px"><span class="mut">算成</span><input id="itAlB" placeholder="型號，例如 CTF60" autocomplete="off" style="max-width:200px"><button type="button" id="itAlBtn">加入</button></div>
-      <p class="note" style="margin:0">合併後兩個型號的下單紀錄會接在一起計算回單週期。設定會跟著資料檔儲存，記得到「資料管理」下載 data.enc.json 上傳 GitHub。</p>
+      <p class="note" style="margin:0">合併後兩個型號的下單紀錄會接在一起計算回單週期。設定會跟著資料檔儲存，${IN_CLAUDE ? '按下就會加密存回這個頁面，其他人打開也看得到。' : '記得到「資料管理」下載 data.enc.json 上傳 GitHub。'}</p>
     </div></details>`;
 }
 function bindAliasPanel(){
@@ -975,7 +998,7 @@ const IT_VIEWS = [['life','回單分析'], ['risk','跑單品項'], ['cust','客
 function vItem(){
   if (!IT.data){
     if (!IT.loading && !IT.err) itLoad();
-    const msg = {nopass:'品項資料有加密，請輸入密碼。', badpass:'品項資料的密碼和業績資料不同，請輸入品項資料的密碼。', missing:'找不到品項資料檔（items.enc.json）。請確認已和 index.html、data.enc.json 一起上傳到 GitHub。'}[IT.err] || IT.err;
+    const msg = {nopass:'品項資料有加密，請輸入密碼。', badpass:'品項資料的密碼和業績資料不同，請輸入品項資料的密碼。', missing:IN_CLAUDE ? '找不到品項資料檔（items.enc.json）。' : '找不到品項資料檔（items.enc.json）。請確認已和 index.html、data.enc.json 一起上傳到 GitHub。'}[IT.err] || IT.err;
     $('#main').innerHTML = IT.err ? `<section class="card"><h2>品項分析</h2><p>${esc(msg)}</p>${IT.err !== 'missing' ? `<div class="chips"><input type="password" id="itPw" placeholder="密碼" autocomplete="current-password"><button type="button" id="itPwBtn">解開</button></div>` : ''}</section>`
       : '<div class="empty">品項資料載入中…（第一次開啟需要幾秒鐘解密）</div>';
     const b = $('#itPwBtn'); if (b) b.onclick = () => { const v = $('#itPw').value; if (v) itLoad(v); };
@@ -1334,9 +1357,147 @@ function itOv(M, P){
 }
 
 
+
+/* ================= 庫存模組（三家公司合併庫存，資料來自庫存查詢） ================= */
+// row: [廠商,品名,規格,採購單,數量,區域,備註,庫齡,顏色,色系,部件,牙徑,管長,最後出庫,近一年出,進貨日,分類,容量]
+const IV = {rows:null, groups:[], loading:false, err:'', updated:'', shown:50, open:new Set(), sel:new Set(), q:'', f:{zone:'', vendor:'', neck:'', turn:'', cat:'', cap:''}, sort:'name', panel:false};
+const IV_SW = {"白":"#ffffff","珍珠白":"linear-gradient(135deg,#fff,#e9e4f0)","黑":"#1b1b1b","金":"linear-gradient(135deg,#f3d27a,#b8862b)","玫瑰金":"linear-gradient(135deg,#f2c4b5,#b76e5c)","香檳金":"linear-gradient(135deg,#f4e3bf,#c9a86a)","銀":"linear-gradient(135deg,#f3f4f6,#9aa1a9)","本色":"#efe8d6","茶色":"#7a4a1e","咖啡":"#5b3a22","棕":"#7b4d2a","粉紅":"#f2a7bf","紅":"#c9302c","藍":"#2d6cdf","綠":"#2e9a57","黃":"#f2c94c","米色":"#e9dcc0","奶茶色":"#c9a27e","灰":"#8a8f94","紫":"#8b5cc4","橘":"#ee8a2f"};
+const ivSw = c => c === '透明' || c === '半透明' ? '<span class="sw clear"></span>' : c === '未標示' || c === '其他' ? '<span class="sw none"></span>' : `<span class="sw" style="background:${IV_SW[c] || 'var(--panel-2)'}"></span>`;
+const ivFmt = n => Math.round(n).toLocaleString('zh-TW');
+const ivRoc = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${y - 1911}.${m}.${d}`; };
+const ivDays = iso => Math.floor((Date.now() - new Date(iso + 'T00:00:00')) / 864e5);
+const IV_TV = ['活躍', '慢動', '呆滯', '死庫存', '新進貨'];
+const ivNeg = r => typeof r[4] === 'number' && r[4] < 0;
+const ivZoneSort = (a, b) => a.localeCompare(b, 'zh-TW', {numeric:true});
+function ivTurn(rows){ let last = '', inD = '', s12 = 0;
+  for (const r of rows){ if (r[13] && r[13] > last) last = r[13]; if (r[15] && (!inD || r[15] < inD)) inD = r[15]; s12 += +r[14] || 0; }
+  if (!last && !inD) return null; let st, txt;
+  if (last){ const d = ivDays(last); st = d <= 90 ? 0 : d <= 365 ? 1 : d <= 1826 ? 2 : 3; txt = '最後出庫 ' + ivRoc(last); }
+  else { const d = ivDays(inD); st = d <= 365 ? 4 : d <= 1826 ? 2 : 3; txt = '從未出庫（' + ivRoc(inD) + ' 進貨）'; }
+  return {st, txt, s12, idle:ivDays(last || inD)}; }
+async function ivLoad(){
+  if (IV.loading) return; IV.loading = true; IV.err = '';
+  try{
+    let d = null, r = await fetch('inv.enc.json', {cache:'no-store'}).catch(() => null);
+    if (r && r.ok) d = await decryptObj(await r.json(), S.pass);
+    else { r = await fetch('inv.json', {cache:'no-store'}).catch(() => null); if (r && r.ok) d = await r.json(); }
+    if (!d) throw new Error('找不到庫存資料檔。');
+    IV.rows = d.rows || []; IV.updated = d.updated || '';
+    IV.rows.forEach(r => { if (['A3區', 'A3', '2樓暫放區', 'A3區(2樓暫放區)'].includes(r[5])) r[5] = 'A3(2樓暫放區)'; });
+    const m = new Map();
+    for (const r of IV.rows){ const pt = r[10] && !r[1].includes(r[10]) ? r[10] : ''; const nk = [r[17], r[11], r[12]].filter(x => x && !r[1].includes(x)).join(' ');
+      const k = r[1] + '\u0001' + pt + '\u0001' + nk + '\u0001' + r[8]; let g = m.get(k); if (!g){ g = {item:r[1], part:pt, neck:nk, color:r[8], fam:r[9] || r[8], rows:[]}; m.set(k, g); } g.rows.push(r); }
+    IV.groups = [...m.values()];
+  }catch(e){ IV.err = e.message || '庫存資料無法開啟'; }
+  IV.loading = false; if (S.mod === 'inv') render();
+}
+const ivHay = (g, r) => [r[1], g.part, r[11], r[12], r[16], r[17], g.color, g.fam, r[3], r[2], r[0], r[5], r[6]].join(' ').toLowerCase();
+function ivMatch(ks, h){ const po = [], ot = []; for (const k of ks) (/^[a-z]{0,2}\d{6,}$/.test(k) ? po : ot).push(k); return ot.every(k => h.includes(k)) && (!po.length || po.some(k => h.includes(k))); }
+function ivFiltered(ignoreColor){
+  const qs = IV.q.trim().toLowerCase().split(/\s+/).filter(Boolean), f = IV.f, out = [];
+  for (const g of IV.groups){
+    if (!ignoreColor && IV.sel.size && !IV.sel.has(g.fam)) continue;
+    let rows = g.rows;
+    if (f.zone) rows = rows.filter(r => r[5] === f.zone);
+    if (f.vendor) rows = rows.filter(r => r[0] === f.vendor);
+    if (f.neck) rows = rows.filter(r => r[11] === f.neck);
+    if (f.cat) rows = rows.filter(r => r[16] === f.cat);
+    if (f.cap) rows = rows.filter(r => r[17] === f.cap);
+    if (qs.length) rows = rows.filter(r => ivMatch(qs, ivHay(g, r)));
+    if (!rows.length) continue;
+    let q = 0; const z = new Set(); for (const r of rows){ if (typeof r[4] === 'number' && r[4] > 0) q += r[4]; if (r[5]) z.add(r[5]); }
+    const sg = {...g, rows, qty:q, zones:z, tv:ivTurn(rows)};
+    if (f.turn !== '' && (!sg.tv || sg.tv.st !== +f.turn)) continue;
+    out.push(sg);
+  }
+  const k = IV.sort;
+  out.sort(k === 'name' ? (a, b) => a.item.localeCompare(b.item, 'en', {numeric:true, sensitivity:'base'}) || a.part.localeCompare(b.part, 'zh-TW') || b.qty - a.qty
+    : k === 'idle' ? (a, b) => ((b.tv ? b.tv.idle : -1) - (a.tv ? a.tv.idle : -1)) || b.qty - a.qty : k === 'po' ? (a, b) => b.rows.length - a.rows.length : (a, b) => b.qty - a.qty);
+  return out;
+}
+/* 這個型號近年有哪些客戶買（從品項分析資料），點了打開客戶頁 */
+function ivBuyers(item){
+  if (!IT.data) return '';
+  const b = itBase(String(item).split(/[(\-/ ]/)[0].toUpperCase());
+  const V = lifeView('全部'), L = V.L.filter(o => o.base === b).sort((x, y) => y.lastShip - x.lastShip);
+  if (!L.length) return '';
+  return `<div class="ivbuy"><span class="mut">${esc(b)} 買過的客戶（${L.length} 位，最近的在前）：</span>${L.slice(0, 6).map(o => `<button type="button" class="ivc" data-cid="${esc(o.c)}">${esc(o.name)} <small>${fmtM(o.lastShip)}・${esc(o.st)}</small></button>`).join('')}</div>`;
+}
+function vInv(){
+  if (!IV.rows){
+    if (!IV.loading && !IV.err) ivLoad();
+    $('#main').innerHTML = IV.err ? `<div class="empty">${esc(IV.err)}</div>` : '<div class="empty">庫存資料載入中…</div>'; return;
+  }
+  if (!IT.data && !IT.loading && !IT.err) itLoad();
+  const uniq = (i, srt) => [...new Set(IV.rows.map(r => r[i]).filter(Boolean))].sort(srt);
+  const opt = (id, label, vals, cur) => `<select id="${id}" aria-label="${label}"><option value="">${label}</option>${vals.map(v => `<option ${v === cur ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
+  const cv = x => (x.endsWith('g') && !x.endsWith('ml') ? 1e6 : 0) + parseFloat(x);
+  $('#main').innerHTML = `
+    <section class="card" style="gap:10px">
+      <div class="flex"><h2>庫存查詢</h2><span class="note">三家公司合併庫存・資料時間 ${esc(IV.updated ? new Date(IV.updated).toLocaleString('zh-TW', {hour12:false}) : '')}</span></div>
+      <div class="ivbar"><input type="search" id="ivQ" placeholder="搜尋品名、型號、單號、顏色" value="${esc(IV.q)}" autocomplete="off" enterkeyhint="search"><button type="button" id="ivClr">清除</button><button type="button" id="ivFb" aria-expanded="${IV.panel}">篩選${Object.values(IV.f).filter(Boolean).length + IV.sel.size ? `（${Object.values(IV.f).filter(Boolean).length + IV.sel.size}）` : ''}</button></div>
+      <div id="ivPanel" ${IV.panel ? '' : 'hidden'}>
+        <div class="ivsel">
+          ${opt('ivZone', '全部區域', uniq(5, ivZoneSort), IV.f.zone)}${opt('ivVendor', '全部廠商', uniq(0, (a, b) => a.localeCompare(b, 'zh-TW')), IV.f.vendor)}${opt('ivNeck', '全部牙徑', uniq(11, (a, b) => parseInt(a) - parseInt(b)), IV.f.neck)}
+          ${opt('ivCat', '全部分類', ['瓶罐', '蓋子', '壓頭噴頭', '吸管', '墊片內塞', '標籤包材', '配件'].filter(c => IV.rows.some(r => r[16] === c)), IV.f.cat)}${opt('ivCap', '全部容量', uniq(17, (a, b) => cv(a) - cv(b)), IV.f.cap)}
+          <select id="ivTurn" aria-label="周轉"><option value="">全部周轉</option>${IV_TV.map((t, i) => `<option value="${i}" ${String(i) === IV.f.turn ? 'selected' : ''}>${t}</option>`).join('')}</select>
+          <select id="ivSort" aria-label="排序">${[['name', '品項 A→Z'], ['idle', '最久沒出庫優先'], ['qty', '數量多→少'], ['po', '採購單多→少']].map(([v, t]) => `<option value="${v}" ${v === IV.sort ? 'selected' : ''}>${t}</option>`).join('')}</select>
+        </div>
+        <p class="note" style="margin:8px 0 4px"><span class="tv s0">活躍</span> 3 個月內有出庫　<span class="tv s1">慢動</span> 3～12 個月　<span class="tv s2">呆滯</span> 1～5 年沒出　<span class="tv s3">死庫存</span> 5 年以上沒出　<span class="tv s4">新進貨</span> 1 年內進貨尚未出</p>
+        <div class="note" style="margin:6px 0">顏色（可選多個）</div><div class="chips" id="ivColors"></div>
+        <div style="margin-top:10px"><button type="button" id="ivReset" class="danger">全部清除</button></div>
+      </div>
+      <div class="note" id="ivStats"></div>
+    </section>
+    <div id="ivList" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div style="display:flex;justify-content:center"><button type="button" id="ivMore" hidden>顯示更多</button></div>`;
+  const fill = () => {
+    const gs = ivFiltered(); let po = 0, qty = 0; gs.forEach(g => { po += g.rows.length; qty += g.qty; });
+    $('#ivStats').innerHTML = `共 <b>${gs.length.toLocaleString()}</b> 項・<b>${po.toLocaleString()}</b> 張採購單・總數量 <b>${ivFmt(qty)}</b>`;
+    const cnt = new Map(); IV.groups.forEach(g => { if (!cnt.has(g.fam)) cnt.set(g.fam, 0); }); ivFiltered(true).forEach(g => cnt.set(g.fam, cnt.get(g.fam) + 1));
+    $('#ivColors').innerHTML = [...cnt].sort((a, b) => (a[0] === '未標示') - (b[0] === '未標示') || b[1] - a[1]).map(([c, n]) => `<button type="button" class="cchip${n || IV.sel.has(c) ? '' : ' zero'}" data-col="${esc(c)}" aria-pressed="${IV.sel.has(c)}">${c === '未標示' ? '' : ivSw(c)}${esc(c === '未標示' ? '不分顏色' : c)} <small>${n}</small></button>`).join('');
+    $('#ivList').innerHTML = gs.length ? gs.slice(0, IV.shown).map(ivGroup).join('') : '<div class="empty">找不到符合的品項，試著清除搜尋或篩選。</div>';
+    $('#ivMore').hidden = gs.length <= IV.shown; $('#ivMore').textContent = `顯示更多（還有 ${gs.length - IV.shown} 項）`;
+  };
+  fill();
+  bindSearch($('#ivQ'), v => { IV.q = v; IV.shown = 50; fill(); });
+  $('#ivClr').onclick = () => { IV.q = ''; $('#ivQ').value = ''; IV.shown = 50; fill(); };
+  $('#ivFb').onclick = () => { IV.panel = !IV.panel; render(); };
+  [['ivZone', 'zone'], ['ivVendor', 'vendor'], ['ivNeck', 'neck'], ['ivCat', 'cat'], ['ivCap', 'cap'], ['ivTurn', 'turn']].forEach(([id, k]) => { $('#' + id).onchange = e => { IV.f[k] = e.target.value; IV.shown = 50; render(); }; });
+  $('#ivSort').onchange = e => { IV.sort = e.target.value; fill(); };
+  $('#ivReset').onclick = () => { IV.q = ''; for (const k in IV.f) IV.f[k] = ''; IV.sel.clear(); IV.shown = 50; render(); };
+  $('#ivColors').onclick = e => { const b = e.target.closest('[data-col]'); if (!b) return; const c = b.dataset.col; IV.sel.has(c) ? IV.sel.delete(c) : IV.sel.add(c); IV.shown = 50; fill(); };
+  $('#ivMore').onclick = () => { IV.shown += 50; fill(); };
+  $('#ivList').onclick = e => {
+    const cb = e.target.closest('[data-cid]'); if (cb){ S.mod = 'sales'; openCust(cb.dataset.cid); return; }
+    const h = e.target.closest('[data-gk]'); if (!h) return; const k = h.dataset.gk; IV.open.has(k) ? IV.open.delete(k) : IV.open.add(k); fill();
+  };
+}
+function ivGroup(g){
+  const key = g.item + '\u0001' + g.part + '\u0001' + g.neck + '\u0001' + g.color, isOpen = IV.open.has(key);
+  const isB = r => /b級品/i.test((r[6] || '') + ' ' + (r[2] || ''));
+  const sum = rows => { let n = 0, t = []; rows.forEach(r => { if (typeof r[4] === 'number') n += r[4]; else if (r[4]) t.push(r[4]); }); return (n ? ivFmt(n) : '') + (t.length ? (n ? ' + ' : '') + t.join('、') : '') || '0'; };
+  const good = g.rows.filter(r => !isB(r) && !ivNeg(r)), bad = g.rows.filter(r => isB(r) && !ivNeg(r)), neg = g.rows.filter(ivNeg);
+  const meta = [...g.zones].sort(ivZoneSort).map(z => `<span class="tag zone">${esc(z)}</span>`).join('') +
+    (g.tv ? `<span class="tv s${g.tv.st}">${IV_TV[g.tv.st]}・${esc(g.tv.txt)}</span>` + (g.tv.s12 > 0 && g.qty > 0 ? (() => { const mo = g.qty / (g.tv.s12 / 12); return `<span>近一年出 ${ivFmt(g.tv.s12)}・約夠出 ${mo < 1 ? '不到 1 個月' : mo >= 120 ? '10 年以上' : ivFmt(mo) + ' 個月'}</span>`; })() : '') : '') +
+    `<span class="caret">${g.rows.length} 張採購單 ${isOpen ? '▴' : '▾'}</span>`;
+  const lines = isOpen ? `<div class="ivlines">${[...g.rows].sort((a, b) => (typeof b[4] === 'number' ? b[4] : 0) - (typeof a[4] === 'number' ? a[4] : 0)).map(r => `<div class="ivline"><div class="po">${esc(r[3] || '（無單號）')}</div><div class="lq ${ivNeg(r) ? 'down' : ''}">${typeof r[4] === 'number' ? ivFmt(r[4]) : esc(r[4] || '')}</div>
+      <div class="lmeta">${ivNeg(r) ? '<span class="tag neg">尚未進貨（廠商還沒交）</span>' : ''}${r[6] ? `<span class="tag ${/b級品/i.test(r[6]) ? 'neg' : 'def'}">${esc(r[6])}</span>` : ''}${r[5] ? `<span class="tag zone">${esc(r[5])}</span>` : ''}${r[0] ? `<span class="tag">${esc(r[0])}</span>` : ''}${r[7] ? `<span class="tag">庫齡 ${esc(r[7])}</span>` : ''}${r[13] ? `<span class="tag">最後出庫 ${ivRoc(r[13])}</span>` : r[15] ? '<span class="tag">尚未出庫</span>' : ''}${+r[14] ? `<span class="tag">近一年出 ${ivFmt(+r[14])}</span>` : ''}</div>
+      ${r[2] ? `<div class="lspec">${esc(r[2])}</div>` : ''}</div>`).join('')}${ivBuyers(g.item)}</div>` : '';
+  return `<div class="ivgrp"><div class="ivhead" data-gk="${esc(key)}" role="button" tabindex="0" aria-expanded="${isOpen}">
+      <div class="ivname">${g.color === '未標示' ? '' : ivSw(g.fam)}<span>${esc(g.item)}${g.part ? ` <b class="part">${esc(g.part)}</b>` : ''}${g.neck ? ` <b class="neck">${esc(g.neck)}</b>` : ''}</span>${g.color === '未標示' ? '' : `<span class="cl">${esc(g.color)}</span>`}</div>
+      <div class="ivqty">${good.length ? `<div>${sum(good)}</div>` : ''}${bad.length ? `<div class="down" style="font-size:15px">B級品 ${sum(bad)}</div>` : ''}${neg.length ? `<div class="down" style="font-size:15px">尚未進貨 ${sum(neg)}</div>` : ''}<small>數量</small></div>
+      <div class="ivmeta">${meta}</div></div>${lines}</div>`;
+}
+
 /* ---------- 主畫面 ---------- */
 function render(){
   killCharts();
+  S.mod = S.mod || recall('mod') || 'sales';
+  document.querySelectorAll('#mods [data-mod]').forEach(b => b.setAttribute('aria-current', b.dataset.mod === S.mod));
+  const inv = S.mod === 'inv';
+  $('#tabs').hidden = inv || !S.A; ['label[for=selYear]', 'label[for=selRep]', '#btnUpload'].forEach(q => { const el = document.querySelector(q); if (el) el.hidden = inv; });
+  if (inv){ $('#main').onclick = null; $('#main').dataset.tab = 'inv'; vInv(); return; }
   $('#main').onclick = null;
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === topOf(S.tab)));
   $('#main').dataset.tab = S.tab;
@@ -1377,6 +1538,7 @@ document.getElementById('main').addEventListener('click', e => {
 /* 客戶頁：不管在哪裡點客戶，都打開同一頁 */
 function openCust(id){
   id = canon(id); if (!S.A || !S.A.cust.has(id)) return;
+  S.mod = 'sales'; store('mod', 'sales');
   S.custBackY = window.scrollY; S.custPage = id;
   try{ history.pushState({cp:id}, ''); }catch(e){}
   render(); window.scrollTo(0, 0);
@@ -1702,11 +1864,11 @@ function vData(){
   const ysum = y => { const r = S.rows.filter(x => x.y === y); return {n:r.length, s:r.reduce((a, x) => a + x.h, 0)}; };
   const nameOf = id => { const r = S.rows.slice().reverse().find(x => x.id === id); return r ? r.n : '(找不到)'; };
   const fmtT = t => t ? new Date(t).toLocaleString('zh-TW', {hour12:false}) : '未記錄';
-  const srcNote = IN_CLAUDE ? '匯入、移除或合併後會自動存成網頁的新版本。'
+  const srcNote = IN_CLAUDE ? `目前資料更新於 ${fmtT(S.updated)}。匯入、移除、合併或任何標記，都會自動加密存回這個頁面，其他人打開就是最新資料。`
     : S.source === 'local' ? `<span class="pill pWarn">本機版本</span> 目前顯示的是這台電腦瀏覽器裡的資料（${fmtT(S.updated)}），比 GitHub 上的 data.enc.json 新。要讓其他人也看到，請下載 data.enc.json 上傳到 GitHub。`
     : S.source === 'file' ? `<span class="pill pGood">GitHub 版本</span> 目前顯示的是網站上的 data.enc.json（${fmtT(S.updated)}）。`
     : '網站上還沒有資料，請先上傳 Excel 並設定密碼。';
-  const dlName = IN_CLAUDE ? 'data.json' : 'data.enc.json';
+  const dlName = 'data.enc.json';
   const gm = new Map();
   for (const a of Object.keys(S.merge)){ const m = canon(a); if (!gm.has(m)) gm.set(m, []); gm.get(m).push(a); }
   const totalOf = m => S.view.filter(r => r.id === m).reduce((t, r) => t + r.h, 0);
@@ -1796,7 +1958,6 @@ function vData(){
   const bn = $('#btnLocalNo'); if (bn) bn.onclick = () => { S.delLocal = false; render(); };
   const bo = $('#btnLocalOk'); if (bo) bo.onclick = () => { try{ localStorage.removeItem('sales.enc'); }catch(e){} S.delLocal = false; S.pass = null; load(); toast('已清除本機版本'); };
   $('#btnJson').onclick = async () => {
-    if (IN_CLAUDE){ saveFile('data.json', new Blob([JSON.stringify(payload())], {type:'application/json'})); return; }
     if (!S.pass){ toast('請先在下方設定密碼'); $('#pw1').focus(); return; }
     toast('加密中…', 3000);
     saveFile('data.enc.json', new Blob([JSON.stringify(await encryptObj(payload(), S.pass))], {type:'application/json'}));
@@ -1884,12 +2045,15 @@ async function afterChange(msg, focusYear){
     toast(ok ? msg + '。已加密存在這台電腦的瀏覽器；要讓其他人也看到，請到「資料管理」下載 data.enc.json 上傳到 GitHub。' : msg + '。瀏覽器無法儲存，重新整理後會回到原本資料，請先下載 data.enc.json。', 9000);
     return;
   }
+  /* Claude 版：資料一律加密後才存回頁面（data.enc.json），不存未加密的資料 */
+  if (!S.pass){ toast(msg + '。目前沒有密碼，無法加密儲存，請重新整理後輸入密碼。', 9000); return; }
   toast(msg + '，儲存中…', 8000);
   try{
     const art = await window.claude.use('artifact');
     if (!art) throw {code:'unavailable'};
-    await art.publish({'data.json': {content:JSON.stringify(payload()), contentType:'application/json'}});
-    toast(msg + '，已儲存，之後打開網頁都是最新資料。');
+    const enc = await encryptObj(payload(), S.pass);
+    await art.publish({'data.enc.json': {content:JSON.stringify(enc), contentType:'application/json'}});
+    toast(msg + '，已加密儲存，其他人打開也是最新資料。');
   }catch(e){
     const c = e && e.code;
     const why = c === 'not_writer' || c === 'not_granted' ? '你只有檢視權限，' : c === 'conflict' ? '有其他人剛更新過資料，頁面會重新載入，' : '';
@@ -1924,6 +2088,7 @@ function downloadXlsx(){
 function setYear(y){ S.year = y; store('year', y); $('#selYear').value = y; render(); }
 $('#selYear').onchange = e => setYear(+e.target.value);
 $('#selRep').onchange = e => { S.rep = e.target.value; store('rep', S.rep); render(); };
+$('#mods').onclick = e => { const b = e.target.closest('[data-mod]'); if (!b || b.disabled) return; S.mod = b.dataset.mod; S.custPage = null; store('mod', S.mod); render(); window.scrollTo({top:0}); };
 $('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (!b) return; S.custPage = null; S.tab = b.dataset.tab === 'custgrp' ? (recall('custSub') || 'cust') : b.dataset.tab; store('tab', S.tab); render(); window.scrollTo({top:0}); };
 /* 淺色／深色切換（預設淺色） */
 const themeLabel = () => { $('#themeBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ 淺色' : '🌙 深色'; };
