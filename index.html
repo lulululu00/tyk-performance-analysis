@@ -816,7 +816,8 @@ function itPrep(){
   const hk = new Map(), hb = new Map();
   for (const r of rows){ if (r.a <= 0) continue; const K = keys[r.k]; if (K.kind === 'F' || K.kind === 'A') continue; add(hk, r.c + '|' + r.k, r.y); add(hb, r.c + '|' + r.b, r.y); }
   IT.cache.clear();
-  const inv = new Map(); if (IT.data.inv) for (const [b, v] of Object.entries(IT.data.inv.m)){ const k = itBase(b), o = inv.get(k); if (!o) inv.set(k, [...v]); else { o[0] += v[0]; if (v[1] > o[1]) o[1] = v[1]; if (v[2] && (!o[2] || v[2] < o[2])) o[2] = v[2]; } }
+  /* 庫存：型號 → 每個「顏色＋牙徑」一筆 [顏色, 牙徑, 數量, 最後出庫, 進貨日, 區域] */
+  const inv = new Map(); if (IT.data.inv) for (const [b, v] of Object.entries(IT.data.inv.m)){ const k = itBase(b); if (!inv.has(k)) inv.set(k, []); inv.get(k).push(...v); }
   return IT.P = {sig, keys, rows, hk, hb, years:IT.data.years, inv};
 }
 /* 兩個年度比較：客戶 → 規格 → 品項，並把業績變化拆成 不再買／新買／同規格數量／同規格單價／費用折讓 */
@@ -917,7 +918,7 @@ function itLife(){
     /* 單品依「型號＋顏色」分組：舊編號、新編號只要顏色一樣就算同一個；PR46 套組各自一組 */
     /* PR46 套組：同型號＋同【品名】一組（例：CTR120組【X】、CTR120瓶身【X】） */
     const gk = (r.part ? 'A|' + r.part + '|' : K.kind === 'P' ? 'C|' : 'L|') + K.color;
-    let it = o.items.get(gk); if (!it){ it = {k:gk, name:r.part ? `${r.part}・${K.color}（同單配件）` : `${r.b}・${K.color}`, kind:K.kind, isColor:true, names:new Map(), ev:new Map(), sh:0}; o.items.set(gk, it); }
+    let it = o.items.get(gk); if (!it){ it = {k:gk, name:r.part ? `${r.part}・${K.color}（同單配件）` : `${r.b}・${K.color}`, kind:K.kind, isColor:true, names:new Map(), ev:new Map(), sh:0, col:K.kind === 'P' ? colN(K.color.split('・')[0]) : '', nk:K.kind === 'P' ? ((K.color.split('・')[1] || '').match(/^\d{2}/) || [''])[0] : '', pb:r.part || r.b}; o.items.set(gk, it); }
     it.names.set(r.k, K);
     it.ev.set(r.m, (it.ev.get(r.m) || 0) + r.a); it.sh = Math.max(it.sh, r.sh);
     cLast.set(r.c, Math.max(cLast.has(r.c) ? cLast.get(r.c) : -1, r.m, r.sh));
@@ -985,8 +986,27 @@ function invSt(v){ const days = iso => Math.floor((Date.now() - new Date(iso + '
   if (v[1]){ const d = days(v[1]); return d <= 90 ? 0 : d <= 365 ? 1 : d <= 1826 ? 2 : 3; }
   if (v[2]){ const d = days(v[2]); return d <= 365 ? 4 : d <= 1826 ? 2 : 3; } return null; }
 const rocD = iso => { if (!iso) return ''; const [y, m] = iso.split('-'); return `${y - 1911}/${m}`; };
-const invCell = o => { const v = o.inv; if (!v) return '<span class="mut">–</span>'; const st = invSt(v);
-  return `<span title="區域：${esc(v[3].join('、'))}${v[1] ? '　最後出庫 ' + rocD(v[1]) : ''}">${v[0] > 0 ? nf0.format(v[0]) : '無庫存'}${st != null && v[0] > 0 ? ` <span class="tv s${st}">${INV_ST[st]}</span>` : ''}</span>`; };
+/* 庫存一定要對到「同型號＋同顏色（＋同牙徑）」，同型號不同顏色不能算在一起 */
+const colN = c => !c || c === '未標顏色' || c === '未標示' ? '' : (c.length > 1 && c.endsWith('色') ? c.slice(0, -1) : c);
+const invSt2 = e => invSt([e[2], e[3], e[4]]);
+const invMatch = (e, col, nk) => e[0] && e[0] === col && (!e[1] || !nk || e[1] === nk);
+const invEntry = e => { const st = invSt2(e); return `<span title="區域：${esc(e[5].join('、'))}${e[3] ? '　最後出庫 ' + rocD(e[3]) : ''}">${esc(e[0])}${e[1] ? ' ' + e[1] + '牙' : ''} ${e[2] > 0 ? nf0.format(e[2]) : '無庫存'}${st != null && e[2] > 0 ? ` <span class="tv s${st}">${INV_ST[st]}</span>` : ''}</span>`; };
+/* 這位客戶在這個型號買過的顏色，對應到的庫存 */
+function invFor(o){
+  const all = o.inv || []; if (!all.length) return {all, cols:[], hit:[]};
+  const gs = o.its.filter(i => i.col && i.pb === o.base), cols = [...new Set(gs.map(i => i.col))];
+  const hit = all.filter(e => gs.some(g => invMatch(e, g.col, g.nk)));
+  return {all, cols, hit};
+}
+const invQty = o => isum(invFor(o).hit, e => e[2]);
+const invCell = o => { const {all, cols, hit} = invFor(o);
+  if (!all.length) return '<span class="mut">–</span>';
+  const others = all.filter(e => e[2] > 0 && !hit.includes(e)).map(e => `${e[0] || '未標示'}${e[1] ? ' ' + e[1] + '牙' : ''} ${nf0.format(e[2])}`).join('、');
+  if (!cols.length) return `<span class="mut" title="這位客戶買的是套組或品名沒寫顏色，無法對到庫存顏色。此型號庫存：${esc(others)}">顏色不明</span>`;
+  if (!hit.length) return `<span class="mut" title="此型號其他顏色庫存：${esc(others || '無')}">客戶買的顏色沒有庫存</span>`;
+  return hit.map(invEntry).join('<br>'); };
+const invGroupCell = (g, o) => { const all = (o.inv && g.pb === o.base) ? o.inv : (itPrep().inv.get(g.pb) || []); if (!g.col || !all.length) return '';
+  const hit = all.filter(e => invMatch(e, g.col, g.nk)); return `<span class="note" style="font-size:13px!important">庫存 ${hit.length ? hit.map(invEntry).join('、') : '這個顏色沒有'}</span>`; };
 const ctxCell = o => o.custGone ? (o.has115 ? '<span class="pill pA" title="品項明細到 114 年，客戶 115 年有下單，要等 115 明細確認">客戶 115 有下單</span>' : '<span class="pill pBad">客戶整個沒再下單</span>')
   : `<span class="pill pWarn" title="客戶最後一次下單：${fmtM(o.cLast)}">客戶還在買別的</span>`;
 const allNames = o => o.its.flatMap(i => [...i.names.values()].map(K => K.disp));
@@ -1287,8 +1307,8 @@ function itCustDetail(c, V){
     </section>
     ${itWhyHtml(c, V)}
     ${card('各規格下單時間軸', `<div class="tw" style="max-height:720px"><table class="sticky1 tlT"><thead><tr><th class="l">規格</th><th class="l tlc">${tlAxis(V)}</th><th class="l">狀態</th><th>次數</th><th>平均週期</th><th>距今</th><th>年均金額</th><th class="l">第一次</th><th class="l">最後</th></tr></thead><tbody id="itTb">${sp.map((o, k) =>
-      `<tr class="clk" data-k="${k}"><td class="l"><b style="font-weight:600">${esc(o.base)}</b> <span class="mut" style="font-size:12px">${o.its.length} 組</span></td><td class="tlc">${tlSvg(o, V, maxA)}</td><td class="l"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">${lifePill(o.st)}${o.why === '客戶銷量減少' ? '<span class="pill pCs">客戶銷量減少</span>' : ''}${itConfCell(o)}${o.inv ? `<span class="note" style="font-size:13.5px!important">庫存 ${invCell(o)}</span>` : ''}</div></td><td>${o.n}</td><td>${cycTxt(o)}</td><td>${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l">${fmtM(o.first)}${o.censored ? '<span class="mut"> 起</span>' : ''}</td><td class="l">${fmtM(o.last)}</td></tr>` +
-      o.its.map(i => `<tr class="sub" data-p="${k}" hidden><td class="l" style="white-space:normal;min-width:240px"><b style="font-weight:600">${esc(i.name)}</b><br><span class="mut" style="font-size:12px">${[...i.names.values()].slice(0, 4).map(K => esc(K.disp) + (K.old ? '（舊編碼）' : '')).join('<br>') + (i.names.size > 4 ? `<br>等 ${i.names.size} 個` : '')}</span></td><td class="tlc">${tlSvg(i, V, maxA, true)}</td><td class="l">${lifePill(i.st)}</td><td>${i.n}</td><td>${cycTxt(i)}</td><td>${i.since} 個月</td><td>${inum(i.annual)}</td><td class="l">${fmtM(i.first)}</td><td class="l">${fmtM(i.last)}</td></tr>`).join('')).join('')}</tbody></table></div>`,
+      `<tr class="clk" data-k="${k}"><td class="l"><b style="font-weight:600">${esc(o.base)}</b> <span class="mut" style="font-size:12px">${o.its.length} 組</span></td><td class="tlc">${tlSvg(o, V, maxA)}</td><td class="l"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">${lifePill(o.st)}${o.why === '客戶銷量減少' ? '<span class="pill pCs">客戶銷量減少</span>' : ''}${itConfCell(o)}${o.inv && o.inv.length ? `<span class="note" style="font-size:13.5px!important">庫存 ${invCell(o)}</span>` : ''}</div></td><td>${o.n}</td><td>${cycTxt(o)}</td><td>${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l">${fmtM(o.first)}${o.censored ? '<span class="mut"> 起</span>' : ''}</td><td class="l">${fmtM(o.last)}</td></tr>` +
+      o.its.map(i => `<tr class="sub" data-p="${k}" hidden><td class="l" style="white-space:normal;min-width:240px"><b style="font-weight:600">${esc(i.name)}</b><br><span class="mut" style="font-size:12px">${[...i.names.values()].slice(0, 4).map(K => esc(K.disp) + (K.old ? '（舊編碼）' : '')).join('<br>') + (i.names.size > 4 ? `<br>等 ${i.names.size} 個` : '')}</span></td><td class="tlc">${tlSvg(i, V, maxA, true)}</td><td class="l"><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">${lifePill(i.st)}${invGroupCell(i, o)}</div></td><td>${i.n}</td><td>${cycTxt(i)}</td><td>${i.since} 個月</td><td>${inum(i.annual)}</td><td class="l">${fmtM(i.first)}</td><td class="l">${fmtM(i.last)}</td></tr>`).join('')).join('')}</tbody></table></div>`,
       '每個點是一次下單（點越大金額越大），虛線圈是照平均週期「應該回單」的時間。點規格可以展開：單品依顏色＋牙徑分組（舊編號、新編號顏色和牙徑一樣算同一組），同型號的 PR46 套組算同一組（品名寫法、中英文不同都一樣）。')}`;
   itWhyChart(c, V);
   mk('cItCh', 'bar', {labels:ys.map(String), datasets:[barDs('', hist, css('--accent'), {maxBarThickness:34})]}, baseOpts({}));
@@ -1543,8 +1563,12 @@ function itActData(V){
   /* 6. 庫存去化：呆滯／死庫存的型號，找以前買過的客戶 */
   const INV = itPrep().inv, buyers = new Map();
   for (const o of V.allL){ let l = buyers.get(o.base); if (!l) buyers.set(o.base, l = []); l.push(o); }
-  const stock = [...INV].map(([b, v]) => ({b, v, st:invSt(v)})).filter(x => x.v[0] > 0 && (x.st === 2 || x.st === 3) && buyers.has(x.b) && !(S.itEol && S.itEol[x.b]))
-    .map(x => ({...x, who:buyers.get(x.b).filter(o => S.rep === '全部' || o.rep === S.rep).sort((a, b) => b.lastShip - a.lastShip).slice(0, 4)})).filter(x => x.who.length).sort((a, b) => b.v[0] - a.v[0]);
+  const stock = [];
+  for (const [b, es] of INV){ if (!buyers.has(b) || (S.itEol && S.itEol[b])) continue;
+    for (const e of es){ const st = invSt2(e); if (!(e[2] > 0 && (st === 2 || st === 3) && e[0])) continue;
+      const who = buyers.get(b).filter(o => (S.rep === '全部' || o.rep === S.rep) && o.its.some(g => g.pb === b && invMatch(e, g.col, g.nk))).sort((x, y) => y.lastShip - x.lastShip).slice(0, 4);
+      if (who.length) stock.push({b, e, st, v:[e[2], e[3]], who}); } }
+  stock.sort((x, y) => y.e[2] - x.e[2]);
   return {due, steal, drop, stop, back, cross, stock};
 }
 const sec = (t, b, h, id) => `<div id="${id}" style="scroll-margin-top:90px;min-width:0">${card(t, b, h)}</div>`;
@@ -1562,7 +1586,7 @@ function itAct(V){
     <p class="note" style="margin:0">這一頁把分析結果變成行動清單：每一區是「該找哪位客戶、談什麼」。金額是該品項有交易期間的年平均，代表做成後每年可能拿回的業績。上方的業務篩選和搜尋都會套用，業務可以只看自己的。</p>
 
     ${sec('① 該追回單：客戶差不多該下單了', tbl([['客戶', 'l'], ['規格', 'l'], ['業務', 'l'], ['平時多久回單'], ['上次出貨', 'l'], ['已經過了'], ['年均金額'], ['建議', 'l']],
-      A.due.slice(0, lim).map(o => `<tr><td class="l">${cust(o)}</td><td class="l">${esc(o.base)}</td><td class="l">${esc(o.rep)}</td><td>${nf2.format(o.cyc)} 個月</td><td class="l">${fmtM(o.lastShip)}</td><td class="${o.st === '逾期未回單' ? 'down' : ''}">${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l" style="white-space:normal;min-width:200px">${o.has115 ? '<span class="pill pA">客戶 115 有下單</span> 先確認是否已回單（115 明細還沒進來）；' : ''}${o.st === '逾期未回單' ? '已逾期，主動問庫存和下批需求' : '快到回單時間，提醒客戶備貨'}${o.inv && o.inv[0] > 0 ? `（庫存 ${nf0.format(o.inv[0])}）` : ''}</td></tr>`).join(''), '目前沒有需要追的回單。') + more(A.due),
+      A.due.slice(0, lim).map(o => `<tr><td class="l">${cust(o)}</td><td class="l">${esc(o.base)}</td><td class="l">${esc(o.rep)}</td><td>${nf2.format(o.cyc)} 個月</td><td class="l">${fmtM(o.lastShip)}</td><td class="${o.st === '逾期未回單' ? 'down' : ''}">${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l" style="white-space:normal;min-width:200px">${o.has115 ? '<span class="pill pA">客戶 115 有下單</span> 先確認是否已回單（115 明細還沒進來）；' : ''}${o.st === '逾期未回單' ? '已逾期，主動問庫存和下批需求' : '快到回單時間，提醒客戶備貨'}${invQty(o) > 0 ? `（同顏色庫存 ${nf0.format(invQty(o))}）` : ''}</td></tr>`).join(''), '目前沒有需要追的回單。') + more(A.due),
       '依年均金額排序。這些客戶有固定回單習慣，現在打電話最容易成交', 'act-due')}
 
     ${sec('② 可能被搶單：客戶還在，但這個品項不跟我們買了', tbl([['客戶', 'l'], ['規格', 'l'], ['業務', 'l'], ['以前多久回單'], ['最後出貨', 'l'], ['年均金額'], ['客戶最近還在買', 'l'], ['建議', 'l']],
@@ -1588,8 +1612,8 @@ function itAct(V){
       '近 3 年的購買紀錄算出來的；客戶從來沒買過推薦的型號。拜訪時順便提案', 'act-cross')}
 
     ${sec('⑦ 呆滯庫存去化：找以前買過的客戶', tbl([['型號', 'l'], ['庫存'], ['周轉', 'l'], ['以前買過的客戶（最近的在前）', 'l']],
-      A.stock.slice(0, lim).map(x => `<tr><td class="l"><b>${esc(x.b)}</b></td><td>${nf0.format(x.v[0])}</td><td class="l"><span class="tv s${x.st}">${INV_ST[x.st]}</span>${x.v[1] ? `<br><span class="mut" style="font-size:13px">最後出庫 ${rocD(x.v[1])}</span>` : ''}</td><td class="l" style="white-space:normal;min-width:320px">${x.who.map(o => `${cust(o)} <span class="mut" style="font-size:13.5px">${fmtM(o.lastShip)}・${esc(o.st)}・${esc(o.rep)}</span>`).join('<br>')}</td></tr>`).join(''), '目前沒有呆滯或死庫存可以配對到客戶。') + more(A.stock),
-      '庫存三家合併；呆滯＝1–5 年沒出、死庫存＝5 年以上沒出。可以優惠價推給以前買過的客戶', 'act-stock')}`;
+      A.stock.slice(0, lim).map(x => `<tr><td class="l"><b>${esc(x.b)}</b><br><span class="mut" style="font-size:13.5px">${esc(x.e[0])}${x.e[1] ? ' ' + x.e[1] + '牙' : ''}</span></td><td>${nf0.format(x.v[0])}</td><td class="l"><span class="tv s${x.st}">${INV_ST[x.st]}</span>${x.v[1] ? `<br><span class="mut" style="font-size:13px">最後出庫 ${rocD(x.v[1])}</span>` : ''}</td><td class="l" style="white-space:normal;min-width:320px">${x.who.map(o => `${cust(o)} <span class="mut" style="font-size:13.5px">${fmtM(o.lastShip)}・${esc(o.st)}・${esc(o.rep)}</span>`).join('<br>')}</td></tr>`).join(''), '目前沒有呆滯或死庫存可以配對到客戶。') + more(A.stock),
+      '庫存三家合併；依「型號＋顏色（＋牙徑）」配對，只列買過同顏色的客戶。呆滯＝1–5 年沒出、死庫存＝5 年以上沒出', 'act-stock')}`;
   $('#itView').onclick = e => { const a = e.target.closest('[data-id]'); if (a){ e.preventDefault(); itGo(a.dataset.id); return; }
     const k = e.target.closest('a.kclick'); if (k){ e.preventDefault(); const t = document.getElementById(k.getAttribute('href').slice(1)); if (t) t.scrollIntoView({behavior:'smooth', block:'start'}); } };
 }
