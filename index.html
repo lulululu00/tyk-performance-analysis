@@ -1817,10 +1817,97 @@ function vRep(){
   $('#main').innerHTML = `
     ${card('各業務歷年營業額趨勢', legendHtml(series.map(s => [s.g, repColor(s.g, major)])) + canvas('cRepLine', 'tall'), S.rep === '全部' ? '依歷年累計前五名的業務分線，其餘合併為「其他」' : '')}
     ${card(`${Y} 年各業務業績`, table, `營業額、客戶數、ABC、新客人依「該年度」的業務計算；「疑似跑單」依客戶最後掛名的業務計算（最後下單年度在 ${L-2} 年含以前）`)}
-    ${card('客戶轉手紀錄', moveTbl, '同一客戶前後年度的業務不同時列出；客戶的掛名業務以最後一次掛名的人員為主')}
-    ${card(`${Y} 年各業務客戶層級分布`, legendHtml([['A 級（≥100 萬）', css('--tA')], ['B 級（30–100 萬）', css('--tB')], ['C 級（<30 萬）', css('--tC')]]) + canvas('cRepTier'))}`;
+    ${card(`${Y} 年各業務客戶層級分布`, legendHtml([['A 級（≥100 萬）', css('--tA')], ['B 級（30–100 萬）', css('--tB')], ['C 級（<30 萬）', css('--tC')]]) + canvas('cRepTier'))}
+    ${fcCard()}
+    <section class="card"><details id="moveBox" ${S.moveOpen ? 'open' : ''}><summary style="cursor:pointer;font-weight:700;font-size:17px;min-height:40px;display:flex;align-items:center">▸ 客戶轉手紀錄（${moves.length} 筆，點開查看）</summary><p class="hint">同一客戶前後年度的業務不同時列出；客戶的掛名業務以最後一次掛名的人員為主</p>${moveTbl}</details></section>`;
+  const mb = $('#moveBox'); if (mb) mb.ontoggle = () => { S.moveOpen = mb.open; };
+  fcDraw();
   mk('cRepLine', 'line', {labels:years, datasets:series.map(s => ({label:s.g, data:s.data, borderColor:repColor(s.g, major), backgroundColor:repColor(s.g, major), borderWidth:2, pointRadius:3, pointHoverRadius:5, tension:.25}))}, baseOpts({line:true}));
   mk('cRepTier', 'bar', {labels:trs.map(x => x.rep), datasets:['A', 'B', 'C'].map(t => barDs(t + ' 級', trs.map(x => x.t[t]), css('--t' + t), {borderWidth:{top:0,bottom:0,left:0,right:2}, borderSkipped:false}))}, baseOpts({horizontal:true, stacked:true, count:true, unit:' 位'}));
+}
+
+/* ---------- 新年度業績預估（每月明細 mon.enc.json） ---------- */
+const MON = {data:null, loading:false, err:''};
+async function monFetch(){
+  let r = null;
+  try{ r = await fetch('mon.enc.json', {cache:'no-store'}); }catch(e){}
+  if (r && r.ok){ const e = await r.json(); if (!S.pass) throw new Error('nopass'); try{ return await decryptObj(e, S.pass); }catch(x){ throw new Error('badpass'); } }
+  try{ r = await fetch('mon.json', {cache:'no-store'}); }catch(e){ r = null; }
+  if (r && r.ok) return await r.json();
+  throw new Error('missing');
+}
+async function monLoad(){
+  if (MON.loading || MON.data) return; MON.loading = true; MON.err = '';
+  try{ MON.data = await monFetch(); }catch(e){ MON.err = e.message; }
+  MON.loading = false; if (S.tab === 'rep') render();
+}
+const MON_NAME = ['1 月','2 月','3 月','4 月','5 月','6 月','7 月','8 月','9 月','10 月','11 月','12 月'];
+function fcCalc(){
+  const D = MON.data, full = D.full || [];
+  const repOf = new Map(S.view.map(r => [r.y + '|' + r.id, r.r || '(未填)']));
+  const mon = {}; // 年 → 12 個月
+  for (const [y, id, m, a] of D.rows){
+    if (S.rep !== '全部' && repOf.get(y + '|' + canon(id)) !== S.rep) continue;
+    (mon[y] = mon[y] || Array(12).fill(0))[m - 1] += a;
+  }
+  const sums = yearSums(fRows());
+  const L = S.A.L, cur = D.cur && D.cur.y === L ? D.cur : null;  // 最新年度還沒結束
+  const fullYs = full.filter(y => mon[y] && mon[y].some(v => v > 0) && y < (cur ? cur.y : L + 1));
+  const sY = fullYs.slice(-5);  // 季節比例：最近 5 個完整年度
+  if (!sY.length) return null;
+  const share = Array(12).fill(0);
+  for (const y of sY){ const t = mon[y].reduce((a, b) => a + b, 0) || 1; mon[y].forEach((v, i) => share[i] += v / t / sY.length); }
+  // 今年（未結束）全年預估
+  let curEst = null, curAct = 0, curCum = 0;
+  if (cur){ curAct = sums[cur.y] || 0; curCum = share.slice(0, cur.m).reduce((a, b) => a + b, 0); curEst = curCum > 0.3 ? curAct / curCum : null; }
+  const nextY = cur ? cur.y + 1 : L + 1;
+  const base = [];  // 近三年
+  for (let y = nextY - 3; y < nextY; y++){ const v = (cur && y === cur.y) ? curEst : sums[y]; if (v != null && v > 0) base.push({y, v, est:!!(cur && y === cur.y)}); }
+  if (!base.length) return null;
+  const avg = base.reduce((a, b) => a + b.v, 0) / base.length;
+  const lo = Math.min(...base.map(b => b.v)), hi = Math.max(...base.map(b => b.v));
+  const est = share.map(s => avg * s);
+  // 高峰月：各年前三名出現次數
+  const topCnt = Array(12).fill(0);
+  for (const y of sY){ mon[y].map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]).slice(0, 3).forEach(([, i]) => topCnt[i]++); }
+  const order = share.map((s, i) => i).sort((a, b) => share[b] - share[a]);
+  const lastFull = fullYs[fullYs.length - 1];
+  return {mon, sY, share, cur, curAct, curEst, curCum, nextY, base, avg, lo, hi, est, topCnt, peak:order.slice(0, 3), low:order.slice(-3).reverse(), lastFull};
+}
+function fcCard(){
+  if (!MON.data){
+    if (!MON.loading && !MON.err) setTimeout(monLoad, 0);
+    const msg = MON.err ? ({missing:'找不到每月資料檔（mon.enc.json）。請確認已和 index.html 一起上傳。', nopass:'每月資料有加密，請重新登入。', badpass:'每月資料的密碼和業績資料不同。'}[MON.err] || MON.err) : '每月資料載入中…';
+    return card('新年度業績預估', `<div class="empty">${esc(msg)}</div>`);
+  }
+  const F = fcCalc(); if (!F) return card('新年度業績預估', '<div class="empty">這位業務的每月資料不夠，沒辦法預估。</div>');
+  const repTxt = S.rep === '全部' ? '' : `（${esc(S.rep)}）`;
+  const mList = a => a.map(i => MON_NAME[i]).join('、');
+  const peakShare = F.peak.reduce((a, i) => a + F.share[i], 0);
+  const tiles = `<div class="kpis" style="margin-bottom:14px">
+    ${F.cur && F.curEst ? kpiTile(`${F.cur.y} 年全年預估${repTxt}`, bigS(F.curEst), `目前已做 ${bigS(F.curAct)}，剩下約 ${bigS(Math.max(0, F.curEst - F.curAct))}`) : ''}
+    ${kpiTile(`${F.nextY} 年預估${repTxt}`, bigS(F.avg), `大約在 ${bigS(F.lo)} ～ ${bigS(F.hi)} 之間`)}
+    ${kpiTile('平均每月', bigS(F.avg / 12), `旺季每月約 ${bigS(F.est[F.peak[0]])}，淡季約 ${bigS(F.est[F.low[0]])}`)}
+    ${kpiTile('下單高峰', mList(F.peak), `這 3 個月合計約占全年 ${pct(peakShare)}`)}
+  </div>`;
+  const say = `<div class="fcsay" style="margin-bottom:12px;line-height:1.9;font-size:16px;background:var(--panel-3);border:1px solid var(--line);border-radius:12px;padding:12px 16px">
+    <b>${F.nextY} 年預估約 ${bigS(F.avg)}</b>，是用近 3 年（${F.base.map(b => `${b.y} 年 ${bigS(b.v)}${b.est ? '（全年預估）' : ''}`).join('、')}）平均算出來的；表現差的話約 ${bigS(F.lo)}，好的話約 ${bigS(F.hi)}。<br>
+    <b>下單高峰</b>：${F.peak.map(i => `${MON_NAME[i]}（近 ${F.sY.length} 年有 ${F.topCnt[i]} 年是前三名）`).join('、')}。<b>淡季</b>：${mList(F.low)}。<br>
+    建議：旺季前 1～2 個月先跟主要客戶確認下單、備好庫存；淡季可以主動聯絡久沒下單的客人。</div>`;
+  const rows = MON_NAME.map((n, i) => {
+    const last = F.mon[F.lastFull] ? F.mon[F.lastFull][i] : 0, pk = F.peak.includes(i), lw = F.low.includes(i);
+    return `<tr${pk ? ' style="background:var(--panel-2)"' : ''}><td class="l">${n}${pk ? ' <span class="pill pGood">高峰</span>' : lw ? ' <span class="mut">淡季</span>' : ''}</td><td>${pct(F.share[i])}</td><td><b>${wan(F.est[i])}</b></td><td>${wan(last)}</td></tr>`;
+  }).join('');
+  const tbl = `<div class="tw"><table><thead><tr><th class="l">月份</th><th>近 ${F.sY.length} 年平均占全年</th><th>${F.nextY} 年預估</th><th>${F.lastFull} 年實際</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const note = `每月比例用 ${F.sY[0]}～${F.sY[F.sY.length-1]} 年的出貨明細計算（未稅、未扣折讓，和年度金額差不到 1%）。${F.cur ? `${F.cur.y} 年資料到 ${F.cur.m} 月，12 月以往年比例補估。` : ''}預估只是參考，大客戶突然加單或停單都會讓實際數字差很多。`;
+  return card(`${F.nextY} 年業績預估、每月業績、下單高峰${repTxt}`, tiles + say + legendHtml([['下單高峰月', css('--s1')], ['其他月份', css('--s3')]]) + canvas('cFc') + tbl + `<p class="note">${note}</p>`, '上方「業務」選單選一位業務，就會只算他的客戶');
+}
+function fcDraw(){
+  if (!MON.data || !document.getElementById('cFc')) return;
+  const F = fcCalc(); if (!F) return;
+  const col = MON_NAME.map((n, i) => F.peak.includes(i) ? css('--s1') : css('--s3'));
+  mk('cFc', 'bar', {labels:MON_NAME, datasets:[barDs(`${F.nextY} 年預估`, F.est, col)]},
+    baseOpts({tipExtra:{afterLabel: ctx => { const i = ctx.dataIndex, l = F.mon[F.lastFull] ? F.mon[F.lastFull][i] : 0; return ` ${F.lastFull} 年實際：${big(l)}\n 占全年：${pct(F.share[i])}`; }}}));
 }
 
 function vAbc(){
