@@ -212,9 +212,11 @@ td.custlink:hover{text-decoration-color:var(--accent)}
 .tv{border-radius:6px;padding:1px 8px;font-weight:600;font-size:13px;white-space:nowrap}
 .tv.s0{background:#173a26;color:#7fe0a5}.tv.s1{background:#3a3214;color:#f0d06a}.tv.s2{background:#3e2814;color:#f5a560}.tv.s3{background:#431c1c;color:#ff8f8f}.tv.s4{background:var(--panel-2);color:var(--ink-3)}
 :root[data-theme=light] .tv.s0{background:#e8eee4;color:#4c6447}:root[data-theme=light] .tv.s1{background:#f3ecdc;color:#7d6640}:root[data-theme=light] .tv.s2{background:#fde3cc;color:#9a4300}:root[data-theme=light] .tv.s3{background:#f3e2de;color:#94403a}
+.itwhy{min-height:32px;font-size:14px;padding:2px 8px;width:auto;max-width:150px}
+.pCs{background:rgba(57,197,207,.12);color:var(--accent-2);border-color:rgba(57,197,207,.45)}
 .itbtn2{background:none;border-style:dashed;color:var(--ink-2)}
 .pEol{background:rgba(176,131,240,.15);color:#dcc4ff;border-color:rgba(176,131,240,.5)}
-.tlc{min-width:320px;width:42%;padding-top:4px!important;padding-bottom:4px!important}
+.tlc{min-width:380px;width:42%;padding-top:4px!important;padding-bottom:4px!important}
 svg.tl{display:block;width:100%}
 .tlx{position:relative;height:18px;font:600 12.5px var(--f-mono);color:var(--ink-3)}
 .tlx span{position:absolute;top:0;transform:translateX(-50%)}
@@ -458,7 +460,7 @@ function analyze(rows){
 }
 </script>
 <script id="app">
-const S = { rows: [], view: [], merge: {}, lost: {}, itLost: {}, itAlias: {}, itEol: {}, itCAlias: {}, lostSt: '全部', custSt: '全部', updated: '', source: 'none', baseUpdated: '', A: null, tab: 'overview', year: null, rep: '全部', q: '', abcTier: 'A', lostTier: '全部', lostQ: '', pending: null, delYear: null };
+const S = { rows: [], view: [], merge: {}, lost: {}, itLost: {}, itAlias: {}, itEol: {}, itCAlias: {}, itReason: {}, lostSt: '全部', custSt: '全部', updated: '', source: 'none', baseUpdated: '', A: null, tab: 'overview', year: null, rep: '全部', q: '', abcTier: 'A', lostTier: '全部', lostQ: '', pending: null, delYear: null };
 const TABS = [['overview','總覽'],['rep','業務分析'],['custgrp','客戶'],['item','品項分析'],['data','資料管理']];
 const CUST_SUB = [['cust','客戶查詢'],['abc','ABC 客戶'],['lost','疑似跑單'],['new','新客人']];
 const topOf = t => CUST_SUB.some(x => x[0] === t) ? 'custgrp' : t;
@@ -501,10 +503,10 @@ function toast(msg, ms=4200){ const t = $('#toast'); t.textContent = msg; t.hidd
 /* ---------- 資料載入 ---------- */
 const IN_CLAUDE = !!(window.claude && window.claude.use);
 function parsePayload(j){
-  return {rows:(j.rows || []).map(a => ({y:+a[0], id:String(a[1]), n:String(a[2]), d:+a[3], h:+a[4], r:String(a[5] || '')})), merge:j.merge || {}, lost:j.lost || {}, itLost:j.itLost || {}, itAlias:j.itAlias || {}, itEol:j.itEol || {}, itCAlias:j.itCAlias || {}, updated:j.updated || ''};
+  return {rows:(j.rows || []).map(a => ({y:+a[0], id:String(a[1]), n:String(a[2]), d:+a[3], h:+a[4], r:String(a[5] || '')})), merge:j.merge || {}, lost:j.lost || {}, itLost:j.itLost || {}, itAlias:j.itAlias || {}, itEol:j.itEol || {}, itCAlias:j.itCAlias || {}, itReason:j.itReason || {}, updated:j.updated || ''};
 }
 function payload(){
-  return {v:2, updated:S.updated, cols:['年度', '對象編號', '對象簡稱', '合計金額', '實際總金額', '業務'], merge:S.merge, lost:S.lost, itLost:S.itLost, itAlias:S.itAlias, itEol:S.itEol, itCAlias:S.itCAlias, rows:S.rows.map(r => [r.y, r.id, r.n, r.d, r.h, r.r])};
+  return {v:2, updated:S.updated, cols:['年度', '對象編號', '對象簡稱', '合計金額', '實際總金額', '業務'], merge:S.merge, lost:S.lost, itLost:S.itLost, itAlias:S.itAlias, itEol:S.itEol, itCAlias:S.itCAlias, itReason:S.itReason, rows:S.rows.map(r => [r.y, r.id, r.n, r.d, r.h, r.r])};
 }
 /* ---------- 加密（AES-256-GCM，金鑰由密碼經 PBKDF2-SHA256 產生） ---------- */
 const ENC_ITER = 600000;
@@ -571,7 +573,7 @@ function showLock(err){
 }
 function finishLoad(use, source){
   S.source = source;
-  S.rows = use ? use.rows : []; S.merge = use ? use.merge : {}; S.lost = use ? (use.lost || {}) : {}; S.itLost = use ? (use.itLost || {}) : {}; S.itAlias = use ? (use.itAlias || {}) : {}; S.itEol = use ? (use.itEol || {}) : {}; S.itCAlias = use ? (use.itCAlias || {}) : {}; S.updated = use ? use.updated : '';
+  S.rows = use ? use.rows : []; S.merge = use ? use.merge : {}; S.lost = use ? (use.lost || {}) : {}; S.itLost = use ? (use.itLost || {}) : {}; S.itAlias = use ? (use.itAlias || {}) : {}; S.itEol = use ? (use.itEol || {}) : {}; S.itCAlias = use ? (use.itCAlias || {}) : {}; S.itReason = use ? (use.itReason || {}) : {}; S.updated = use ? use.updated : '';
   recompute();
   S.tab = recall('tab') || 'overview';
   const ry = recall('year'); if (ry && S.A && S.A.years.includes(ry)) S.year = ry;
@@ -883,9 +885,9 @@ function itWaterfall(id, y0, y1, t0, parts, t1){
 
 /* ---------- 回單分析：每位客戶每個規格的第一次下單、回單次數、平均回單週期、距今多久沒回 ---------- */
 const fmtM = m => `${Math.floor(m / 12)}/${String(m % 12 + 1).padStart(2, '0')}`;
-const LIFE_ST = ['正常回單', '新品觀察中', '逾期未回單', '疑似跑掉', '只買一次', '產品停產'];
-const lifeColor = s => css({'正常回單':'--good', '新品觀察中':'--accent-2', '逾期未回單':'--warn', '疑似跑掉':'--bad', '只買一次':'--s6', '已換新編碼':'--s5', '產品停產':'--s5'}[s]);
-const lifePill = s => `<span class="pill ${({'正常回單':'pGood', '新品觀察中':'pA', '逾期未回單':'pWarn', '疑似跑掉':'pBad', '只買一次':'pMuted', '已換新編碼':'pMuted', '產品停產':'pEol'})[s]}">${esc(s)}</span>`;
+const LIFE_ST = ['正常回單', '新品觀察中', '逾期未回單', '疑似跑掉', '只買一次', '產品停產', '客戶停賣'];
+const lifeColor = s => css({'正常回單':'--good', '新品觀察中':'--accent-2', '逾期未回單':'--warn', '疑似跑掉':'--bad', '只買一次':'--s6', '已換新編碼':'--s5', '產品停產':'--s5', '客戶停賣':'--s4'}[s]);
+const lifePill = s => `<span class="pill ${({'正常回單':'pGood', '新品觀察中':'pA', '逾期未回單':'pWarn', '疑似跑掉':'pBad', '只買一次':'pMuted', '已換新編碼':'pMuted', '產品停產':'pEol', '客戶停賣':'pCs'})[s]}">${esc(s)}</span>`;
 const median = a => { const b = a.slice().sort((x, y) => x - y), n = b.length; return n ? (n % 2 ? b[(n - 1) / 2] : (b[n / 2 - 1] + b[n / 2]) / 2) : null; };
 /* 判斷規則：
    回單 ≥ 2 次：距今 ≤ 週期×1.5（至少 6 個月）→ 正常；≤ 週期×3（至少 12 個月）→ 逾期未回單；更久 → 疑似跑掉
@@ -940,16 +942,28 @@ function lifeView(rep){
   for (const o of L){
     o.inv = INV.get(o.base) || null;
     const k = o.c + '|' + o.base, at = IL.get(k), ca = S.A.cust.get(o.c); o.key = k;
-    o.eol = !!(S.itEol && S.itEol[o.base]); o.st = o.eol ? '產品停產' : o.st0; // 我們自己停產的型號，不算客戶跑掉
-    o.custConf = !o.eol && !!(ca && ca.confirmed); // 客戶已確定跑單 → 這位客戶的品項全部算確定跑掉
-    o.conf = o.custConf || (!o.eol && at != null && o.lastShip <= at); o.back = !o.eol && !o.custConf && at != null && o.lastShip > at; byKey.set(k, o);
+    o.eol = !!(S.itEol && S.itEol[o.base]);
+    /* 客戶端原因（只影響這位客戶的這個型號）：客戶停賣＝客戶自己的產品不賣了；客戶銷量減少＝客戶自己賣得少，不是被搶單 */
+    const IRraw = (S.itReason || {}); o.why = IRraw[k] || IRraw[Object.keys(IRraw).find(x => x.slice(x.indexOf('|') + 1) === o.base && canon(x.slice(0, x.indexOf('|'))) === o.c) || ''] || '';
+    o.st = o.eol ? '產品停產' : o.why === '客戶停賣' ? '客戶停賣' : o.st0; // 我們停產／客戶停賣都不算被搶單跑掉
+    o.custConf = !o.eol && o.why !== '客戶停賣' && !!(ca && ca.confirmed); // 客戶已確定跑單 → 這位客戶的品項全部算確定跑掉
+    o.conf = o.custConf || (!o.eol && o.why !== '客戶停賣' && at != null && o.lastShip <= at); o.back = !o.eol && !o.custConf && at != null && o.lastShip > at; byKey.set(k, o);
   }
   return {...LF, L, byKey};
 }
 /* 品項確定跑掉：存在資料檔（itLost：客戶|型號 → 確定時的最後出貨月份），之後又下單會自動顯示「確定後又回單」 */
 const eolBtn = o => `<button type="button" class="itbtn itbtn2" data-eol="${esc(o.base)}" title="${esc(o.base)} 這個型號我們不做了：所有客戶的 ${esc(o.base)} 都不算跑掉">產品停產</button>`;
 const itConfCell = o => o.eol ? `<span class="chips" style="flex-wrap:nowrap"><span class="pill pEol" title="${esc(S.itEol[o.base])}">⏹ 產品停產</span><button type="button" class="itbtn" data-eolu="${esc(o.base)}">取消</button></span>`
-  : `<span class="chips" style="flex-wrap:nowrap">${itConfCell0(o)}${o.conf ? '' : eolBtn(o)}</span>`;
+  : `<span class="chips" style="flex-wrap:nowrap">${o.why === '客戶停賣' ? '' : itConfCell0(o)}${o.conf || o.why === '客戶停賣' ? '' : eolBtn(o)}${whySel(o)}</span>`;
+const WHY = ['客戶銷量減少', '客戶停賣'];
+const whySel = o => `<select class="itwhy" data-why="${esc(o.key)}" title="客戶那邊的原因（只影響這位客戶的這個型號）"><option value="">${o.why ? '清除原因' : '客戶端原因…'}</option>${WHY.map(w => `<option ${w === o.why ? 'selected' : ''}>${w}</option>`).join('')}</select>`;
+document.addEventListener('change', e => {
+  const s = e.target.closest && e.target.closest('select.itwhy'); if (!s) return;
+  const k = s.dataset.why, v = s.value, wy = window.scrollY;
+  for (const x of Object.keys(S.itReason)) if (x === k || (x.slice(x.indexOf('|') + 1) === k.slice(k.indexOf('|') + 1) && canon(x.slice(0, x.indexOf('|'))) === k.slice(0, k.indexOf('|')))) delete S.itReason[x];
+  if (v) S.itReason[k] = v;
+  afterChange(v ? `已標記原因：${v}` : '已清除原因'); window.scrollTo(0, wy);
+});
 const itConfCell0 = o => o.custConf ? '<span class="pill pBad" title="客戶已在「客戶查詢」確定跑單，品項全部算確定跑掉；要取消請到客戶那裡取消">✓ 確定跑掉（客戶跑單）</span>' : o.conf
   ? `<span class="chips" style="flex-wrap:nowrap"><span class="pill pBad" title="年均 ${bigS(o.annual)}">✓ 確定跑掉</span><button type="button" class="itbtn" data-itu="${esc(o.key)}">取消</button></span>`
   : `${o.back ? '<span class="pill pA" title="確定跑掉之後又有下單">確定後又回單</span> ' : ''}<button type="button" class="itbtn" data-itc="${esc(o.key)}">確定跑掉</button>`;
@@ -990,7 +1004,9 @@ function tlSvg(o, LF, maxA, small){
 }
 function tlAxis(LF){
   const span = LF.mEnd + 1 - LF.M0, pos = m => (6 + (m - LF.M0 + .5) / span * 408) / 420 * 100;
-  let h = ''; for (let y = LF.M0; y <= LF.mEnd; y += 12) h += `<span style="left:${pos(y + 5.5).toFixed(2)}%">${y / 12}</span>`;
+  /* 年度多時隔年顯示，避免數字擠在一起（99–114 共 16 年 → 每 3 年一個，最後一年一定顯示） */
+  const y0 = LF.M0 / 12, y1 = Math.floor(LF.mEnd / 12), n = y1 - y0 + 1, step = n > 12 ? 3 : n > 7 ? 2 : 1;
+  let h = ''; for (let y = y0; y <= y1; y++){ if ((y1 - y) % step) continue; h += `<span style="left:${pos(y * 12 + 5.5).toFixed(2)}%">${y}</span>`; }
   return `<div class="tlx">${h}</div>`;
 }
 
@@ -1049,7 +1065,7 @@ function itBody(){
   ({life:itLifeOv, risk:itRisk, cust:itCust2, first:itFirst})[IT.view](V);
 }
 const itGo = id => openCust(id);
-const ruleNote = `<p class="note" style="margin:0">判斷方式：每個「客戶 × 規格」用訂單月份算出平均回單週期（中位數）；「距今」從最後一次出貨算起（大訂單分批出貨，出完前不算沒回單）。<b>正常回單</b>：距今不超過週期的 1.5 倍；<b>逾期未回單</b>：超過 1.5 倍、還沒到 3 倍；<b>疑似跑掉</b>：超過 3 倍（至少 12 個月）；只下過一次的，12 個月內算<b>新品觀察中</b>，超過算<b>只買一次</b>。年均金額＝該規格累計金額 ÷ 第一次到最後一次下單的年數。客戶在「客戶查詢」按了確定跑單，他的品項會全部自動算確定跑掉。我們自己停產的型號可以標「產品停產」，就不算客戶跑掉。規格用型號判斷（同型號不同流水碼＝不同顏色，都算同一個規格），所以 110/12 貨品編號改版前後、以及 r 回收料版本，都算同一個規格；展開後依「顏色＋牙徑」分組（例如 白・24/410、白・28/410 分開）：單品從編號和品名自動抓，舊編號、新編號顏色和牙徑一樣就算同一組。</p>`;
+const ruleNote = `<p class="note" style="margin:0">判斷方式：每個「客戶 × 規格」用訂單月份算出平均回單週期（中位數）；「距今」從最後一次出貨算起（大訂單分批出貨，出完前不算沒回單）。<b>正常回單</b>：距今不超過週期的 1.5 倍；<b>逾期未回單</b>：超過 1.5 倍、還沒到 3 倍；<b>疑似跑掉</b>：超過 3 倍（至少 12 個月）；只下過一次的，12 個月內算<b>新品觀察中</b>，超過算<b>只買一次</b>。年均金額＝該規格累計金額 ÷ 第一次到最後一次下單的年數。客戶在「客戶查詢」按了確定跑單，他的品項會全部自動算確定跑掉。我們自己停產的型號可以標「產品停產」，就不算客戶跑掉；客戶那邊的原因可以選「客戶銷量減少」或「客戶停賣」（只影響那位客戶的那個型號，客戶停賣也不算跑掉）。規格用型號判斷（同型號不同流水碼＝不同顏色，都算同一個規格），所以 110/12 貨品編號改版前後、以及 r 回收料版本，都算同一個規格；展開後依「顏色＋牙徑」分組（例如 白・24/410、白・28/410 分開）：單品從編號和品名自動抓，舊編號、新編號顏色和牙徑一樣就算同一組。</p>`;
 
 function itLifeOv(V){
   const L = V.L, by = s => L.filter(o => o.st === s);
@@ -1064,6 +1080,7 @@ function itLifeOv(V){
   $('#itView').innerHTML = `
     <section class="kpis">
       ${LIFE_ST.map(s => { const g = by(s); return `<div class="kclick" data-gost="${s}" title="點一下看「${s}」的品項清單">` + kpiTile(s, g.length + '<small> 個</small>', s === '只買一次' ? `累計 ${bigS(isum(g, o => o.tot))}` : `年均 ${bigS(isum(g, o => o.annual))}`) + '</div>'; }).join('')}
+      ${(() => { const g = L.filter(o => o.why === '客戶銷量減少'); return `<div class="kclick" data-gost="客戶銷量減少" title="點一下看標記為客戶銷量減少的品項">` + kpiTile('客戶銷量減少', g.length + '<small> 個</small>', `年均 ${bigS(isum(g, o => o.annual))}・客戶自己賣得少`) + '</div>'; })()}
     </section>
     ${ruleNote}
     ${itConfSummary(V)}
@@ -1145,7 +1162,7 @@ function itSearch(V){
   setTimeout(() => { const i = $('#itSq'); if (i && !IT.sq) i.focus(); }, 50);
 }
 function itRisk(V){
-  const STF = ['需注意', '疑似跑掉', '逾期未回單', '只買一次', '正常回單', '新品觀察中', '已確定跑掉', '產品停產', '全部'], CTX = ['全部', '客戶還在買別的', '客戶整個沒再下單'];
+  const STF = ['需注意', '疑似跑掉', '逾期未回單', '只買一次', '正常回單', '新品觀察中', '已確定跑掉', '客戶銷量減少', '客戶停賣', '產品停產', '全部'], CTX = ['全部', '客戶還在買別的', '客戶整個沒再下單'];
   if (!STF.includes(IT.stf)) IT.stf = '需注意';
   $('#itView').innerHTML = `
     <section class="card">
@@ -1158,10 +1175,10 @@ function itRisk(V){
     </section>`;
   const fill = () => {
     const q = IT.q.trim().toLowerCase();
-    const list = V.L.filter(o => (IT.stf === '全部' || (IT.stf === '已確定跑掉' ? o.conf : IT.stf === '需注意' ? (o.st === '疑似跑掉' || o.st === '逾期未回單') : o.st === IT.stf))
+    const list = V.L.filter(o => (IT.stf === '全部' || (IT.stf === '已確定跑掉' ? o.conf : IT.stf === '客戶銷量減少' ? o.why === '客戶銷量減少' : IT.stf === '需注意' ? (o.st === '疑似跑掉' || o.st === '逾期未回單') : o.st === IT.stf))
       && (IT.ctxf === '全部' || (IT.ctxf === '客戶整個沒再下單') === o.custGone)
       && (!q || o.name.toLowerCase().includes(q) || o.c.toLowerCase().includes(q) || o.base.toLowerCase().includes(q) || allNames(o).some(n => n.toLowerCase().includes(q)))).sort((a, b) => b.annual - a.annual);
-    $('#itRb').innerHTML = list.slice(0, 600).map(o => `<tr><td class="l">${itConfCell(o)}</td><td class="l"><b style="font-weight:600">${esc(o.base)}</b></td><td class="l"><a href="#" data-id="${esc(o.c)}" style="color:var(--accent)">${esc(o.name)}</a></td><td class="l">${esc(o.rep)}</td><td class="l">${fmtM(o.first)}${o.censored ? ' <span class="mut" title="資料從這時開始，實際可能更早">起</span>' : ''}</td><td class="l">${fmtM(o.last)}</td><td class="l">${fmtM(o.lastShip)}</td><td>${o.n}</td><td>${cycTxt(o)}</td><td>${o.since} 個月</td><td>${inum(o.annual)}</td><td>${inum(o.tot)}</td><td class="l">${lifePill(o.st)}</td><td class="l">${ctxCell(o)}</td><td class="l">${invCell(o)}</td><td class="l" style="white-space:normal;min-width:220px;font-size:13.5px">${esc(allNames(o).slice(0, 2).join('；'))}${allNames(o).length > 2 ? ` <span class="mut">等 ${allNames(o).length} 項</span>` : ''}</td></tr>`).join('');
+    $('#itRb').innerHTML = list.slice(0, 600).map(o => `<tr><td class="l">${itConfCell(o)}</td><td class="l"><b style="font-weight:600">${esc(o.base)}</b></td><td class="l"><a href="#" data-id="${esc(o.c)}" style="color:var(--accent)">${esc(o.name)}</a></td><td class="l">${esc(o.rep)}</td><td class="l">${fmtM(o.first)}${o.censored ? ' <span class="mut" title="資料從這時開始，實際可能更早">起</span>' : ''}</td><td class="l">${fmtM(o.last)}</td><td class="l">${fmtM(o.lastShip)}</td><td>${o.n}</td><td>${cycTxt(o)}</td><td>${o.since} 個月</td><td>${inum(o.annual)}</td><td>${inum(o.tot)}</td><td class="l">${lifePill(o.st)}${o.why === '客戶銷量減少' ? ' <span class="pill pCs">客戶銷量減少</span>' : ''}</td><td class="l">${ctxCell(o)}</td><td class="l">${invCell(o)}</td><td class="l" style="white-space:normal;min-width:220px;font-size:13.5px">${esc(allNames(o).slice(0, 2).join('；'))}${allNames(o).length > 2 ? ` <span class="mut">等 ${allNames(o).length} 項</span>` : ''}</td></tr>`).join('');
     $('#itRn').textContent = `共 ${list.length} 個（客戶×規格），年均合計 ${bigS(isum(list, o => o.annual))}${list.length > 600 ? '（只列前 600 個，可用搜尋縮小範圍）' : ''}`;
   };
   fill();
@@ -1250,7 +1267,7 @@ function itWhyChart(c, V){
 }
 function itCustDetail(c, V){
   killCharts();
-  const ord = ['疑似跑掉', '逾期未回單', '只買一次', '新品觀察中', '正常回單', '產品停產'];
+  const ord = ['疑似跑掉', '逾期未回單', '只買一次', '新品觀察中', '正常回單', '客戶停賣', '產品停產'];
   const sp = c.sp.slice().sort((a, b) => ord.indexOf(a.st) - ord.indexOf(b.st) || b.annual - a.annual);
   const maxA = Math.max(1, ...sp.flatMap(o => [...o.ev.values()]));
   const ca = S.A.cust.get(c.id), ys = S.A.years;
@@ -1270,7 +1287,7 @@ function itCustDetail(c, V){
     </section>
     ${itWhyHtml(c, V)}
     ${card('各規格下單時間軸', `<div class="tw" style="max-height:720px"><table class="sticky1 tlT"><thead><tr><th class="l">規格</th><th class="l tlc">${tlAxis(V)}</th><th class="l">狀態</th><th>次數</th><th>平均週期</th><th>距今</th><th>年均金額</th><th class="l">第一次</th><th class="l">最後</th></tr></thead><tbody id="itTb">${sp.map((o, k) =>
-      `<tr class="clk" data-k="${k}"><td class="l"><b style="font-weight:600">${esc(o.base)}</b> <span class="mut" style="font-size:12px">${o.its.length} 組</span></td><td class="tlc">${tlSvg(o, V, maxA)}</td><td class="l"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">${lifePill(o.st)}${itConfCell(o)}${o.inv ? `<span class="note" style="font-size:13.5px!important">庫存 ${invCell(o)}</span>` : ''}</div></td><td>${o.n}</td><td>${cycTxt(o)}</td><td>${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l">${fmtM(o.first)}${o.censored ? '<span class="mut"> 起</span>' : ''}</td><td class="l">${fmtM(o.last)}</td></tr>` +
+      `<tr class="clk" data-k="${k}"><td class="l"><b style="font-weight:600">${esc(o.base)}</b> <span class="mut" style="font-size:12px">${o.its.length} 組</span></td><td class="tlc">${tlSvg(o, V, maxA)}</td><td class="l"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">${lifePill(o.st)}${o.why === '客戶銷量減少' ? '<span class="pill pCs">客戶銷量減少</span>' : ''}${itConfCell(o)}${o.inv ? `<span class="note" style="font-size:13.5px!important">庫存 ${invCell(o)}</span>` : ''}</div></td><td>${o.n}</td><td>${cycTxt(o)}</td><td>${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l">${fmtM(o.first)}${o.censored ? '<span class="mut"> 起</span>' : ''}</td><td class="l">${fmtM(o.last)}</td></tr>` +
       o.its.map(i => `<tr class="sub" data-p="${k}" hidden><td class="l" style="white-space:normal;min-width:240px"><b style="font-weight:600">${esc(i.name)}</b><br><span class="mut" style="font-size:12px">${[...i.names.values()].slice(0, 4).map(K => esc(K.disp) + (K.old ? '（舊編碼）' : '')).join('<br>') + (i.names.size > 4 ? `<br>等 ${i.names.size} 個` : '')}</span></td><td class="tlc">${tlSvg(i, V, maxA, true)}</td><td class="l">${lifePill(i.st)}</td><td>${i.n}</td><td>${cycTxt(i)}</td><td>${i.since} 個月</td><td>${inum(i.annual)}</td><td class="l">${fmtM(i.first)}</td><td class="l">${fmtM(i.last)}</td></tr>`).join('')).join('')}</tbody></table></div>`,
       '每個點是一次下單（點越大金額越大），虛線圈是照平均週期「應該回單」的時間。點規格可以展開：單品依顏色＋牙徑分組（舊編號、新編號顏色和牙徑一樣算同一組），同型號的 PR46 套組算同一組（品名寫法、中英文不同都一樣）。')}`;
   itWhyChart(c, V);
