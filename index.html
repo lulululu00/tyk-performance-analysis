@@ -1007,7 +1007,7 @@ const invCell = o => { const {all, cols, hit} = invFor(o);
   return hit.map(invEntry).join('<br>'); };
 const invGroupCell = (g, o) => { const all = (o.inv && g.pb === o.base) ? o.inv : (itPrep().inv.get(g.pb) || []); if (!g.col || !all.length) return '';
   const hit = all.filter(e => invMatch(e, g.col, g.nk)); return `<span class="note" style="font-size:13px!important">庫存 ${hit.length ? hit.map(invEntry).join('、') : '這個顏色沒有'}</span>`; };
-const ctxCell = o => o.custGone ? (o.has115 ? '<span class="pill pA" title="品項明細到 114 年，客戶 115 年有下單，要等 115 明細確認">客戶 115 有下單</span>' : '<span class="pill pBad">客戶整個沒再下單</span>')
+const ctxCell = o => o.custGone ? (o.has115 ? `<span class="pill pA" title="品項明細到 ${IT.data.years[IT.data.years.length - 1]} 年，客戶之後有下單，要等新的明細確認">客戶 ${IT.data.years[IT.data.years.length - 1] + 1} 有下單</span>` : '<span class="pill pBad">客戶整個沒再下單</span>')
   : `<span class="pill pWarn" title="客戶最後一次下單：${fmtM(o.cLast)}">客戶還在買別的</span>`;
 const allNames = o => o.its.flatMap(i => [...i.names.values()].map(K => K.disp));
 const cycTxt = o => o.cyc == null ? '<span class="mut">–</span>' : `${nf2.format(o.cyc)} 個月`;
@@ -1529,6 +1529,7 @@ function ivGroup(g){
 
 
 /* ---------- 業績機會：把分析變成「該找哪位客戶、談什麼」的行動清單 ---------- */
+const PIF_Y = 115, PIF_M = PIF_Y * 12 + 6; // 115 年 7 月
 function itActData(V){
   const L = V.L, mEnd = V.mEnd;
   const live = o => !o.conf && !o.eol && o.why !== '客戶停賣';
@@ -1544,6 +1545,15 @@ function itActData(V){
   for (const o of L){ let c = cm.get(o.c); if (!c){ c = {id:o.c, name:o.name, rep:o.rep, a:0, last:0, its:[]}; cm.set(o.c, c); } c.a += o.annual; c.last = Math.max(c.last, o.lastShip); c.its.push(o); }
   const back = [...cm.values()].filter(c => { const ca = S.A.cust.get(c.id); return ca && !ca.confirmed && c.its.every(o => o.custGone) && mEnd - c.last <= 36 && mEnd - c.last >= 12 && !(ca.amt[S.A.L] > 0); })
     .map(c => ({...c, top:c.its.slice().sort((a, b) => b.annual - a.annual).slice(0, 3)})).sort((a, b) => b.a - a.a);
+  /* 4b. PIF 法規（115/7/1 一般化粧品全面上路）前一年內有下單、上路後就沒再下單的客戶 */
+  const pif = mEnd <= PIF_M ? [] : [...cm.values()].filter(c => { const ca = S.A.cust.get(c.id); return ca && !ca.confirmed && c.last >= PIF_M - 12 && c.last < PIF_M; }).map(c => {
+    const ca = S.A.cust.get(c.id), ms = [...new Set(c.its.flatMap(o => [...o.ev.keys()]))].sort((a, b) => a - b);
+    const gaps = ms.slice(1).map((m, i) => m - ms[i]).sort((a, b) => a - b), cyc = gaps.length ? gaps[Math.floor((gaps.length - 1) / 2)] : null;
+    const avg = ((ca.amt[PIF_Y - 2] || 0) + (ca.amt[PIF_Y - 1] || 0)) / 2, since = mEnd - c.last;
+    return {...c, cyc, avg, since, size:avg < 3e5 ? '小' : avg < 1e6 ? '中' : '大', late:cyc == null || since > Math.max(cyc * 1.5, 3), top:c.its.slice().sort((a, b) => b.annual - a.annual).slice(0, 3)};
+  }).sort((a, b) => (b.late - a.late) || (b.avg - a.avg));
+  const pifIds = new Set(pif.map(c => c.id));
+  for (let i = back.length - 1; i >= 0; i--) if (pifIds.has(back[i].id)) back.splice(i, 1);
   /* 5. 推薦品項：買過 A 的客戶很多也買 B，這位客戶還沒買過 B（近 3 年有交易的客戶） */
   const recent = mEnd - 36, cb = new Map(), cnt = new Map(), co = new Map();
   for (const o of V.allL){ if (o.lastShip < recent) continue; let s = cb.get(o.c); if (!s) cb.set(o.c, s = new Set()); s.add(o.base); }
@@ -1569,7 +1579,7 @@ function itActData(V){
       const who = buyers.get(b).filter(o => (S.rep === '全部' || o.rep === S.rep) && o.its.some(g => g.pb === b && invMatch(e, g.col, g.nk))).sort((x, y) => y.lastShip - x.lastShip).slice(0, 4);
       if (who.length) stock.push({b, e, st, v:[e[2], e[3]], who}); } }
   stock.sort((x, y) => y.e[2] - x.e[2]);
-  return {due, steal, drop, stop, back, cross, stock};
+  return {due, steal, drop, stop, back, pif, cross, stock};
 }
 const sec = (t, b, h, id) => `<div id="${id}" style="scroll-margin-top:90px;min-width:0">${card(t, b, h)}</div>`;
 function itAct(V){
@@ -1580,18 +1590,18 @@ function itAct(V){
   const lim = 60, more = l => l.length > lim ? `<p class="note" style="margin:0">只列前 ${lim} 筆（共 ${l.length} 筆），可用上方搜尋或業務篩選縮小範圍。</p>` : '';
   $('#itView').innerHTML = `
     <section class="kpis">
-      ${[['due', '該追回單', A.due, '有固定回單習慣、已到或超過回單時間'], ['steal', '可能被搶單', A.steal, '客戶還在買別的，這個品項卻停了'], ['back', '可拉回的客戶', A.back, '1–3 年前整個沒再下單'], ['cross', '可推薦新品項', A.cross, '一年內有出貨的客戶'], ['stock', '可推的呆滯庫存', A.stock, '找以前買過的客戶']]
-        .map(([k, t, l, d]) => `<a class="kclick" href="#act-${k}" style="text-decoration:none;color:inherit">${kpiTile(t, l.length + `<small> ${k === 'back' || k === 'cross' ? '位' : '個'}</small>`, k === 'due' || k === 'steal' ? `年均 ${sumA(l)}・${d}` : k === 'back' ? `年均 ${bigS(isum(l, c => c.a))}・${d}` : d)}</a>`).join('')}
+      ${[['due', '該追回單', A.due, '有固定回單習慣、已到或超過回單時間'], ['steal', '可能被搶單', A.steal, '客戶還在買別的，這個品項卻停了'], ['pif', '法規後沒再下單', A.pif, 'PIF 上路（115/7）後還沒下單'], ['back', '可拉回的客戶', A.back, '1–3 年前整個沒再下單'], ['cross', '可推薦新品項', A.cross, '一年內有出貨的客戶'], ['stock', '可推的呆滯庫存', A.stock, '找以前買過的客戶']]
+        .map(([k, t, l, d]) => `<a class="kclick" href="#act-${k}" style="text-decoration:none;color:inherit">${kpiTile(t, l.length + `<small> ${k === 'back' || k === 'cross' || k === 'pif' ? '位' : '個'}</small>`, k === 'due' || k === 'steal' ? `年均 ${sumA(l)}・${d}` : k === 'back' ? `年均 ${bigS(isum(l, c => c.a))}・${d}` : k === 'pif' ? `其中小客人 ${l.filter(c => c.size === '小').length} 位・${d}` : d)}</a>`).join('')}
     </section>
     <p class="note" style="margin:0">這一頁把分析結果變成行動清單：每一區是「該找哪位客戶、談什麼」。金額是該品項有交易期間的年平均，代表做成後每年可能拿回的業績。上方的業務篩選和搜尋都會套用，業務可以只看自己的。</p>
 
     ${sec('① 該追回單：客戶差不多該下單了', tbl([['客戶', 'l'], ['規格', 'l'], ['業務', 'l'], ['平時多久回單'], ['上次出貨', 'l'], ['已經過了'], ['年均金額'], ['建議', 'l']],
-      A.due.slice(0, lim).map(o => `<tr><td class="l">${cust(o)}</td><td class="l">${esc(o.base)}</td><td class="l">${esc(o.rep)}</td><td>${nf2.format(o.cyc)} 個月</td><td class="l">${fmtM(o.lastShip)}</td><td class="${o.st === '逾期未回單' ? 'down' : ''}">${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l" style="white-space:normal;min-width:200px">${o.has115 ? '<span class="pill pA">客戶 115 有下單</span> 先確認是否已回單（115 明細還沒進來）；' : ''}${o.st === '逾期未回單' ? '已逾期，主動問庫存和下批需求' : '快到回單時間，提醒客戶備貨'}${invQty(o) > 0 ? `（同顏色庫存 ${nf0.format(invQty(o))}）` : ''}</td></tr>`).join(''), '目前沒有需要追的回單。') + more(A.due),
+      A.due.slice(0, lim).map(o => `<tr><td class="l">${cust(o)}</td><td class="l">${esc(o.base)}</td><td class="l">${esc(o.rep)}</td><td>${nf2.format(o.cyc)} 個月</td><td class="l">${fmtM(o.lastShip)}</td><td class="${o.st === '逾期未回單' ? 'down' : ''}">${o.since} 個月</td><td>${inum(o.annual)}</td><td class="l" style="white-space:normal;min-width:200px">${o.has115 ? `<span class="pill pA">客戶 ${IT.data.years[IT.data.years.length - 1] + 1} 有下單</span> 先確認是否已回單（${IT.data.years[IT.data.years.length - 1] + 1} 品項明細還沒上傳）；` : ''}${o.st === '逾期未回單' ? '已逾期，主動問庫存和下批需求' : '快到回單時間，提醒客戶備貨'}${invQty(o) > 0 ? `（同顏色庫存 ${nf0.format(invQty(o))}）` : ''}</td></tr>`).join(''), '目前沒有需要追的回單。') + more(A.due),
       '依年均金額排序。這些客戶有固定回單習慣，現在打電話最容易成交', 'act-due')}
 
     ${sec('② 可能被搶單：客戶還在，但這個品項不跟我們買了', tbl([['客戶', 'l'], ['規格', 'l'], ['業務', 'l'], ['以前多久回單'], ['最後出貨', 'l'], ['年均金額'], ['客戶最近還在買', 'l'], ['建議', 'l']],
       A.steal.slice(0, lim).map(o => { const still = V.L.filter(x => x.c === o.c && x.base !== o.base && x.lastShip > o.lastShip).sort((a, b) => b.lastShip - a.lastShip).slice(0, 2).map(x => x.base).join('、');
-        return `<tr><td class="l">${cust(o)}</td><td class="l">${esc(o.base)}</td><td class="l">${esc(o.rep)}</td><td>${o.cyc != null ? nf2.format(o.cyc) + ' 個月' : '只買過一次'}</td><td class="l">${fmtM(o.lastShip)}</td><td>${inum(o.annual)}</td><td class="l">${esc(still) || '<span class="mut">–</span>'}</td><td class="l" style="white-space:normal;min-width:200px">${o.has115 ? '<span class="pill pA">客戶 115 有下單</span> ' : ''}問清楚原因：價格、品質還是交期？查明後在客戶品項標上「客戶端原因」</td></tr>`; }).join(''), '目前沒有。') + more(A.steal),
+        return `<tr><td class="l">${cust(o)}</td><td class="l">${esc(o.base)}</td><td class="l">${esc(o.rep)}</td><td>${o.cyc != null ? nf2.format(o.cyc) + ' 個月' : '只買過一次'}</td><td class="l">${fmtM(o.lastShip)}</td><td>${inum(o.annual)}</td><td class="l">${esc(still) || '<span class="mut">–</span>'}</td><td class="l" style="white-space:normal;min-width:200px">${o.has115 ? `<span class="pill pA">客戶 ${IT.data.years[IT.data.years.length - 1] + 1} 有下單</span> ` : ''}問清楚原因：價格、品質還是交期？查明後在客戶品項標上「客戶端原因」</td></tr>`; }).join(''), '目前沒有。') + more(A.steal),
       '近 4 年內停的、還沒標原因也還沒確定跑掉的品項。問清楚原因後標記，清單就會分流到下面', 'act-steal')}
 
     ${sec('③ 客戶銷量減少：幫客戶把貨賣出去', tbl([['客戶', 'l'], ['規格', 'l'], ['業務', 'l'], ['年均金額'], ['最後出貨', 'l'], ['建議', 'l']],
@@ -1606,6 +1616,10 @@ function itAct(V){
     ${sec('⑤ 可拉回的客戶：整個沒再下單，但流失不久', tbl([['客戶', 'l'], ['業務', 'l'], ['最後出貨', 'l'], ['以前年均'], ['以前主要買', 'l'], ['建議', 'l']],
       A.back.slice(0, lim).map(c => `<tr><td class="l">${cust(c)}</td><td class="l">${esc(c.rep)}</td><td class="l">${fmtM(c.last)}</td><td>${inum(c.a)}</td><td class="l">${esc(c.top.map(o => o.base).join('、'))}</td><td class="l" style="white-space:normal;min-width:200px">拜訪或來電關心，帶新品型錄；確認不會回來就到客戶查詢按「確定跑單」</td></tr>`).join(''), '目前沒有。') + more(A.back),
       `最後出貨在 1–3 年前、${S.A.L} 年也沒有營業額、還沒確定跑單的客戶，越久越難拉回`, 'act-back')}
+
+    ${sec('⑤-2 法規上路後沒再下單：觀望中的客人', tbl([['客戶', 'l'], ['規模', 'l'], ['業務', 'l'], ['最後出貨', 'l'], ['平常多久下一次'], [`${PIF_Y - 2}–${PIF_Y - 1} 年平均`], ['以前主要買', 'l'], ['建議', 'l']],
+      A.pif.slice(0, lim).map(c => `<tr><td class="l">${cust(c)}</td><td class="l"><span class="pill ${c.size === '小' ? 'pC' : c.size === '中' ? 'pB' : 'pA'}">${c.size}客人</span></td><td class="l">${esc(c.rep)}</td><td class="l">${fmtM(c.last)}</td><td>${c.cyc != null ? c.cyc + ' 個月' : '只買過一次'}</td><td>${inum(c.avg)}</td><td class="l">${esc(c.top.map(o => o.base).join('、'))}</td><td class="l" style="white-space:normal;min-width:240px">${c.late ? '<span class="down">已超過平常下單間隔</span>　' : '<span class="mut">還在平常下單間隔內</span>　'}問 PIF 建檔進度；主動提供容器材質規格、材質證明等包材資料，幫客戶省建檔的時間和費用</td></tr>`).join(''), '目前沒有。') + more(A.pif),
+      `${PIF_Y} 年 7 月 1 日化粧品 PIF 全面上路前一年內有下單、上路後就沒再下單的客戶（未確定跑單）。注意：往年同期本來就有一半以上的客人還沒回單，請先找「已超過平常下單間隔」的（排在前面）`, 'act-pif')}
 
     ${sec('⑥ 可推薦的新品項：買過同類產品的客戶常一起買', tbl([['客戶', 'l'], ['業務', 'l'], ['年均（全部品項）'], ['推薦型號', 'l']],
       A.cross.slice(0, lim).map(c => `<tr><td class="l">${cust(c)}</td><td class="l">${esc(c.rep)}</td><td>${inum(c.a)}</td><td class="l" style="white-space:normal;min-width:320px">${c.recs.map(r => `<b>${esc(r.b)}</b> <span class="mut" style="font-size:13.5px">（買 ${esc(r.a)} 的 ${r.na} 位客戶中有 ${r.n} 位也買）</span>`).join('<br>')}</td></tr>`).join(''), '目前沒有。') + more(A.cross),
